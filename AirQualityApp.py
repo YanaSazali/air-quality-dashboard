@@ -65,10 +65,3 @@ st.markdown("### Average Pollutant Levels by City")
 avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
 st.dataframe(avg_pollutants)
 
-# Optional: Export filtered data
-st.download_button(
-    label="Download Filtered Data as CSV",
-    data=filtered_df.to_csv(index=False),
-    file_name=f"air_quality_{country}_{'_'.join(cities)}.csv",
-    mime='text/csv'
-)
