@@ -4,6 +4,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+# Set page config at the top
 st.set_page_config(page_title="Air Quality Dashboard", layout="wide")
 
 # Load data
@@ -18,31 +19,42 @@ def load_data():
 
 df = load_data()
 
-st.title("Interactive Air Quality Dashboard")
+# Add coordinates if not in dataset
+if 'Latitude' not in df.columns or 'Longitude' not in df.columns:
+    city_coords = {
+        "Delhi": (28.6139, 77.2090),
+        "Beijing": (39.9042, 116.4074),
+        "New York": (40.7128, -74.0060),
+        "London": (51.5074, -0.1278),
+        "Tokyo": (35.6895, 139.6917),
+        # Add more cities as needed
+    }
+    df['Latitude'] = df['City'].map(lambda x: city_coords.get(x, (None, None))[0])
+    df['Longitude'] = df['City'].map(lambda x: city_coords.get(x, (None, None))[1])
 
-# Sidebar Filters
-st.sidebar.header("Filter by Location")
-country = st.sidebar.selectbox("Select Country", sorted(df['Country'].unique()))
-
-filtered_df = df[df['Country'] == country]
-
-cities = st.sidebar.multiselect(
-    "Select Cities",
-    sorted(filtered_df['City'].unique()),
-    default=sorted(filtered_df['City'].unique())[:1]
+# Header
+st.markdown(
+    """
+    <h1 style='text-align: center; color: #FF4B4B;'>🌍 Air Quality Dashboard</h1>
+    <h4 style='text-align: center; color: gray;'>Track & Visualize Global Pollutant Levels</h4>
+    <br>
+    """,
+    unsafe_allow_html=True
 )
 
+# Sidebar Filters
+st.sidebar.header("🌐 Filter by Location")
+country = st.sidebar.selectbox("Select Country", sorted(df['Country'].unique()))
+filtered_df = df[df['Country'] == country]
+cities = st.sidebar.multiselect("Select Cities", sorted(filtered_df['City'].unique()), default=sorted(filtered_df['City'].unique())[:1])
 filtered_df = filtered_df[filtered_df['City'].isin(cities)]
 
-# Main Display
-st.subheader(f"Air Quality for {', '.join(cities)} in {country}")
-
-# Time series and pollutant comparison
+# Pollutant Selection
 pollutants = ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3']
 selected_pollutant = st.selectbox("Select Pollutant to Visualize", pollutants)
 
-# Time series plot
-st.markdown(f"### {selected_pollutant} Over Time")
+# Line Chart
+st.markdown(f"### 📊 {selected_pollutant} Over Time")
 fig, ax = plt.subplots(figsize=(12, 5))
 for city in cities:
     city_data = filtered_df[filtered_df['City'] == city]
@@ -54,14 +66,21 @@ ax.legend()
 ax.grid(True)
 st.pyplot(fig)
 
-# Distribution plot
-st.markdown(f"### Distribution of {selected_pollutant}")
+# Distribution
+st.markdown(f"### 📊 Distribution of {selected_pollutant}")
 fig, ax = plt.subplots(figsize=(10, 5))
 sns.histplot(filtered_df, x=selected_pollutant, hue='City', kde=True, ax=ax, bins=30)
 st.pyplot(fig)
 
-# Average pollutant levels per city
-st.markdown("### Average Pollutant Levels by City")
+# Data Table
+st.markdown("### 📄 Average Pollutant Levels by City")
 avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
 st.dataframe(avg_pollutants)
 
+# Download Option
+st.download_button(
+    label="📥 Download Filtered Data as CSV",
+    data=filtered_df.to_csv(index=False),
+    file_name=f"air_quality_{country}_{'_'.join(cities)}.csv",
+    mime='text/csv'
+)
