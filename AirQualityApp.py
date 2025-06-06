@@ -3,7 +3,6 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import pydeck as pdk
 
 st.set_page_config(page_title="Air Quality Dashboard", layout="wide")
 
@@ -65,38 +64,4 @@ st.pyplot(fig)
 st.markdown("### Average Pollutant Levels by City")
 avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
 st.dataframe(avg_pollutants)
-
-# Pollutant Map
-st.markdown(f"### {selected_pollutant} Levels Map")
-
-# Compute average pollutant per city with coordinates
-map_data = (
-    filtered_df.groupby(['City', 'Latitude', 'Longitude'])[selected_pollutant]
-    .mean()
-    .reset_index()
-    .rename(columns={selected_pollutant: 'PollutantLevel'})
-)
-
-# Remove missing coordinates if any
-map_data = map_data.dropna(subset=['Latitude', 'Longitude'])
-
-# Create map using Pydeck
-layer = pdk.Layer(
-    "ScatterplotLayer",
-    data=map_data,
-    get_position='[Longitude, Latitude]',
-    get_color='[255, 105, 97, 160]',  # Red with transparency
-    get_radius='PollutantLevel * 2000',
-    pickable=True
-)
-
-view_state = pdk.ViewState(
-    latitude=map_data['Latitude'].mean(),
-    longitude=map_data['Longitude'].mean(),
-    zoom=4,
-    pitch=0
-)
-
-st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip={"text": "{City}: {PollutantLevel}"}))
-
 
