@@ -19,19 +19,6 @@ def load_data():
 
 df = load_data()
 
-# Add coordinates if not in dataset
-if 'Latitude' not in df.columns or 'Longitude' not in df.columns:
-    city_coords = {
-        "Delhi": (28.6139, 77.2090),
-        "Beijing": (39.9042, 116.4074),
-        "New York": (40.7128, -74.0060),
-        "London": (51.5074, -0.1278),
-        "Tokyo": (35.6895, 139.6917),
-        # Add more cities as needed
-    }
-    df['Latitude'] = df['City'].map(lambda x: city_coords.get(x, (None, None))[0])
-    df['Longitude'] = df['City'].map(lambda x: city_coords.get(x, (None, None))[1])
-
 # Header
 st.markdown(
     """
@@ -77,10 +64,3 @@ st.markdown("### 📄 Average Pollutant Levels by City")
 avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
 st.dataframe(avg_pollutants)
 
-# Download Option
-st.download_button(
-    label="📥 Download Filtered Data as CSV",
-    data=filtered_df.to_csv(index=False),
-    file_name=f"air_quality_{country}_{'_'.join(cities)}.csv",
-    mime='text/csv'
-)
