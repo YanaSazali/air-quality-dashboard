@@ -19,8 +19,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Navigation
-page = st.sidebar.radio("Navigation", ["Home", "Dashboard"])
+# Main page selector (not in sidebar)
+page = st.selectbox("Select Page", ["Home", "Dashboard"])
 
 # Load data
 @st.cache_data
@@ -38,12 +38,11 @@ if page == "Home":
     st.markdown(
         """
         <h1 style='text-align: center; color: #FF4B4B;'>🌍 Welcome to the Air Quality Dashboard</h1>
-        <h4 style='text-align: center; color: gray;'>Use the navigation to explore air quality data by country and city</h4>
+        <h4 style='text-align: center; color: gray;'>Use the page selector above to explore air quality data by country and city</h4>
         <br>
         <ul>
             <li>Filter data by country and city</li>
             <li>Visualize pollutant trends and distributions</li>
-            <li>Download filtered datasets for analysis</li>
         </ul>
         """,
         unsafe_allow_html=True
@@ -60,11 +59,11 @@ elif page == "Dashboard":
         unsafe_allow_html=True
     )
 
-    # Sidebar Filters
-    st.sidebar.header("🌐 Filter by Location")
-    country = st.sidebar.selectbox("Select Country", sorted(df['Country'].unique()))
+    # Filters (moved to main content)
+    st.markdown("### 🌐 Filter by Location")
+    country = st.selectbox("Select Country", sorted(df['Country'].unique()))
     filtered_df = df[df['Country'] == country]
-    cities = st.sidebar.multiselect("Select Cities", sorted(filtered_df['City'].unique()), default=sorted(filtered_df['City'].unique())[:1])
+    cities = st.multiselect("Select Cities", sorted(filtered_df['City'].unique()), default=sorted(filtered_df['City'].unique())[:1])
     filtered_df = filtered_df[filtered_df['City'].isin(cities)]
 
     # Pollutant Selection
