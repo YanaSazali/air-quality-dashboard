@@ -7,6 +7,21 @@ import matplotlib.pyplot as plt
 # Set page config at the top
 st.set_page_config(page_title="Air Quality Dashboard", layout="wide")
 
+# Set light theme background color using custom CSS
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #f8f9fa;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Navigation
+page = st.sidebar.radio("Navigation", ["Home", "Dashboard"])
+
 # Load data
 @st.cache_data
 def load_data():
@@ -19,48 +34,63 @@ def load_data():
 
 df = load_data()
 
-# Header
-st.markdown(
-    """
-    <h1 style='text-align: center; color: #FF4B4B;'>🌍 Air Quality Dashboard</h1>
-    <h4 style='text-align: center; color: gray;'>Track & Visualize Global Pollutant Levels</h4>
-    <br>
-    """,
-    unsafe_allow_html=True
-)
+if page == "Home":
+    st.markdown(
+        """
+        <h1 style='text-align: center; color: #FF4B4B;'>🌍 Welcome to the Air Quality Dashboard</h1>
+        <h4 style='text-align: center; color: gray;'>Use the navigation to explore air quality data by country and city</h4>
+        <br>
+        <ul>
+            <li>Filter data by country and city</li>
+            <li>Visualize pollutant trends and distributions</li>
+            <li>Download filtered datasets for analysis</li>
+        </ul>
+        """,
+        unsafe_allow_html=True
+    )
 
-# Sidebar Filters
-st.sidebar.header("🌐 Filter by Location")
-country = st.sidebar.selectbox("Select Country", sorted(df['Country'].unique()))
-filtered_df = df[df['Country'] == country]
-cities = st.sidebar.multiselect("Select Cities", sorted(filtered_df['City'].unique()), default=sorted(filtered_df['City'].unique())[:1])
-filtered_df = filtered_df[filtered_df['City'].isin(cities)]
+elif page == "Dashboard":
+    # Header
+    st.markdown(
+        """
+        <h1 style='text-align: center; color: #FF4B4B;'>🌍 Air Quality Dashboard</h1>
+        <h4 style='text-align: center; color: gray;'>Track & Visualize Global Pollutant Levels</h4>
+        <br>
+        """,
+        unsafe_allow_html=True
+    )
 
-# Pollutant Selection
-pollutants = ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3']
-selected_pollutant = st.selectbox("Select Pollutant to Visualize", pollutants)
+    # Sidebar Filters
+    st.sidebar.header("🌐 Filter by Location")
+    country = st.sidebar.selectbox("Select Country", sorted(df['Country'].unique()))
+    filtered_df = df[df['Country'] == country]
+    cities = st.sidebar.multiselect("Select Cities", sorted(filtered_df['City'].unique()), default=sorted(filtered_df['City'].unique())[:1])
+    filtered_df = filtered_df[filtered_df['City'].isin(cities)]
 
-# Line Chart
-st.markdown(f"### 📊 {selected_pollutant} Over Time")
-fig, ax = plt.subplots(figsize=(12, 5))
-for city in cities:
-    city_data = filtered_df[filtered_df['City'] == city]
-    city_avg = city_data.groupby('Date')[selected_pollutant].mean()
-    ax.plot(city_avg.index, city_avg.values, label=city)
-ax.set_ylabel(f"{selected_pollutant} concentration")
-ax.set_xlabel("Date")
-ax.legend()
-ax.grid(True)
-st.pyplot(fig)
+    # Pollutant Selection
+    pollutants = ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3']
+    selected_pollutant = st.selectbox("Select Pollutant to Visualize", pollutants)
 
-# Distribution
-st.markdown(f"### 📊 Distribution of {selected_pollutant}")
-fig, ax = plt.subplots(figsize=(10, 5))
-sns.histplot(filtered_df, x=selected_pollutant, hue='City', kde=True, ax=ax, bins=30)
-st.pyplot(fig)
+    # Line Chart
+    st.markdown(f"### 📊 {selected_pollutant} Over Time")
+    fig, ax = plt.subplots(figsize=(12, 5))
+    for city in cities:
+        city_data = filtered_df[filtered_df['City'] == city]
+        city_avg = city_data.groupby('Date')[selected_pollutant].mean()
+        ax.plot(city_avg.index, city_avg.values, label=city)
+    ax.set_ylabel(f"{selected_pollutant} concentration")
+    ax.set_xlabel("Date")
+    ax.legend()
+    ax.grid(True)
+    st.pyplot(fig)
 
-# Data Table
-st.markdown("### 📄 Average Pollutant Levels by City")
-avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
-st.dataframe(avg_pollutants)
+    # Distribution
+    st.markdown(f"### 📊 Distribution of {selected_pollutant}")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    sns.histplot(filtered_df, x=selected_pollutant, hue='City', kde=True, ax=ax, bins=30)
+    st.pyplot(fig)
 
+    # Data Table
+    st.markdown("### 📄 Average Pollutant Levels by City")
+    avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
+    st.dataframe(avg_pollutants)
