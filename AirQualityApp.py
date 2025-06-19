@@ -11,25 +11,22 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
-# Set page config at the top
+# Set page config
 st.set_page_config(page_title="Air Quality Dashboard", layout="wide")
 
-# Set light theme background color using custom CSS
-st.markdown(
-    """
+# Custom light theme background
+st.markdown("""
     <style>
     body {
         background-color: #f8f9fa;
     }
     </style>
-    """,
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
 
-# Main page selector (not in sidebar)
+# Page selector
 page = st.selectbox("Select Page", ["Home", "Dashboard", "Prediction"])
 
-# Load data
+# Load and clean data
 @st.cache_data
 def load_data():
     df = pd.read_csv("AirQuality_Global.csv")
@@ -57,8 +54,7 @@ df['Rolling_PM2.5'] = df.groupby('City')['PM2.5'].transform(lambda x: x.rolling(
 df = df.dropna()
 
 if page == "Home":
-    st.markdown(
-        """
+    st.markdown("""
         <h1 style='text-align: center; color: #FF4B4B;'>🌍 Welcome to the Air Quality Dashboard</h1>
         <h4 style='text-align: center; color: gray;'>Use the page selector above to explore air quality data by country and city</h4>
         <br>
@@ -68,19 +64,14 @@ if page == "Home":
             <li>Download filtered datasets for analysis</li>
             <li>Use prediction tool to estimate PM2.5 levels</li>
         </ul>
-        """,
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
 
 elif page == "Dashboard":
-    st.markdown(
-        """
+    st.markdown("""
         <h1 style='text-align: center; color: #FF4B4B;'>🌍 Air Quality Dashboard</h1>
         <h4 style='text-align: center; color: gray;'>Track & Visualize Global Pollutant Levels</h4>
         <br>
-        """,
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
 
     st.markdown("### 🌐 Filter by Location")
     country = st.selectbox("Select Country", sorted(df['Country'].unique()))
@@ -89,6 +80,17 @@ elif page == "Dashboard":
     filtered_df = filtered_df[filtered_df['City'].isin(cities)]
 
     pollutants = ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3']
+
+    with st.expander("ℹ️ What do these pollutants mean?"):
+        st.markdown("""
+        - **PM2.5**: Fine particles harmful to lungs.
+        - **PM10**: Larger particles (e.g. dust).
+        - **NO2**: Emitted from vehicles and factories.
+        - **SO2**: Linked to coal and oil combustion.
+        - **CO**: Carbon monoxide from incomplete combustion.
+        - **O3**: Ozone; forms from reactions between pollutants.
+        """)
+
     selected_pollutant = st.selectbox("Select Pollutant to Visualize", pollutants)
 
     st.markdown(f"### 📊 {selected_pollutant} Over Time")
@@ -112,12 +114,49 @@ elif page == "Dashboard":
     avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
     st.dataframe(avg_pollutants)
 
+    # Summary Insights
+    st.markdown("### 🧐 Summary Insights")
+    top_cities = (
+        df[df['Country'] == country]
+        .groupby('City')['PM2.5']
+        .mean()
+        .sort_values(ascending=False)
+        .head(5)
+        .reset_index()
+    )
+    st.markdown("#### 🌆 Top 5 Most Polluted Cities (by PM2.5)")
+    st.dataframe(top_cities)
+
+    monthly_avg = (
+        df[df['Country'] == country]
+        .groupby('Month')['PM2.5']
+        .mean()
+        .round(2)
+    )
+    fig, ax = plt.subplots(figsize=(8, 4))
+    sns.lineplot(x=monthly_avg.index, y=monthly_avg.values, marker='o', ax=ax)
+    ax.set_title("📅 Monthly Average PM2.5 Trend")
+    ax.set_xlabel("Month")
+    ax.set_ylabel("PM2.5 µg/m³")
+    ax.grid(True)
+    st.pyplot(fig)
+
+    # Download filtered data
+    st.markdown("### 📄 Download Filtered Dataset")
+    csv = filtered_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📅 Download CSV",
+        data=csv,
+        file_name="filtered_air_quality.csv",
+        mime="text/csv"
+    )
+
 elif page == "Prediction":
     st.markdown("""
         <h1 style='text-align: center; color: #FF4B4B;'>🔮 Predict PM2.5 Levels</h1>
         <h4 style='text-align: center; color: gray;'>Estimate PM2.5 concentration using multiple features</h4>
         <br>
-        """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
     feature_cols = [
         'PM10', 'NO2', 'SO2', 'CO', 'O3',
@@ -141,8 +180,23 @@ elif page == "Prediction":
 
     model.fit(X, y)
 
-    st.markdown("### 📥 Enter Feature Values")
+    st.markdown("### 📅 Enter Feature Values")
     input_dict = {col: st.number_input(col, value=float(df[col].mean())) for col in feature_cols}
     input_array = np.array([list(input_dict.values())])
     predicted = model.predict(input_array)[0]
+
+    # Health interpretation
+    def interpret_pm25(value):
+        if value <= 15:
+            return "🟢 Good – Air quality is considered safe."
+        elif value <= 35:
+            return "🟡 Moderate – Acceptable, but some pollutants may pose a risk for sensitive groups."
+        elif value <= 55:
+            return "🟠 Unhealthy for Sensitive Groups – Limit prolonged outdoor exposure."
+        elif value <= 150:
+            return "🔴 Unhealthy – Everyone may begin to experience health effects."
+        else:
+            return "⚫ Very Unhealthy – Avoid outdoor activities."
+
     st.success(f"🌫️ Predicted PM2.5 Level using {model_choice}: {predicted:.2f} µg/m³")
+    st.info(interpret_pm25(predicted))
