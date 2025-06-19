@@ -3,6 +3,13 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 
 # Set page config at the top
 st.set_page_config(page_title="Air Quality Dashboard", layout="wide")
@@ -20,7 +27,7 @@ st.markdown(
 )
 
 # Main page selector (not in sidebar)
-page = st.selectbox("Select Page", ["Home", "Dashboard"])
+page = st.selectbox("Select Page", ["Home", "Dashboard", "Prediction"])
 
 # Load data
 @st.cache_data
@@ -43,6 +50,8 @@ if page == "Home":
         <ul>
             <li>Filter data by country and city</li>
             <li>Visualize pollutant trends and distributions</li>
+            <li>Download filtered datasets for analysis</li>
+            <li>Use prediction tool to estimate PM2.5 levels</li>
         </ul>
         """,
         unsafe_allow_html=True
@@ -59,7 +68,7 @@ elif page == "Dashboard":
         unsafe_allow_html=True
     )
 
-    # Filters (moved to main content)
+    # Filters
     st.markdown("### 🌐 Filter by Location")
     country = st.selectbox("Select Country", sorted(df['Country'].unique()))
     filtered_df = df[df['Country'] == country]
@@ -93,3 +102,60 @@ elif page == "Dashboard":
     st.markdown("### 📄 Average Pollutant Levels by City")
     avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
     st.dataframe(avg_pollutants)
+
+elif page == "Prediction":
+    st.markdown("""
+        <h1 style='text-align: center; color: #FF4B4B;'>🔮 Predict PM2.5 Levels</h1>
+        <h4 style='text-align: center; color: gray;'>Enter pollutant & weather data to estimate PM2.5 concentration</h4>
+        <br>
+        """, unsafe_allow_html=True)
+
+    # Input features
+    st.markdown("### 📥 Enter Features")
+    PM10 = st.number_input("PM10", 0.0, 500.0, 50.0)
+    NO2 = st.number_input("NO2", 0.0, 200.0, 20.0)
+    SO2 = st.number_input("SO2", 0.0, 100.0, 10.0)
+    CO = st.number_input("CO", 0.0, 15.0, 1.0)
+    O3 = st.number_input("O3", 0.0, 300.0, 50.0)
+    Temperature = st.number_input("Temperature (°C)", -30.0, 50.0, 25.0)
+    Humidity = st.number_input("Humidity (%)", 0.0, 100.0, 50.0)
+    WindSpeed = st.number_input("Wind Speed (km/h)", 0.0, 100.0, 10.0)
+
+    input_data = np.array([[PM10, NO2, SO2, CO, O3, Temperature, Humidity, WindSpeed]])
+
+    # Feature columns
+    features = ['PM10', 'NO2', 'SO2', 'CO', 'O3', 'Temperature', 'Humidity', 'Wind Speed']
+    X = df[features]
+    y = df['PM2.5']
+
+    # Model selection
+    st.markdown("### 🤖 Choose a Model")
+    model_choice = st.selectbox("Select Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
+
+    if model_choice == "Linear Regression":
+        model = Pipeline([
+            ('scaler', StandardScaler()),
+            ('regressor', LinearRegression())
+        ])
+    elif model_choice == "Random Forest":
+        model = Pipeline([
+            ('scaler', StandardScaler()),
+            ('regressor', RandomForestRegressor(n_estimators=100, random_state=42))
+        ])
+    elif model_choice == "Decision Tree":
+        model = Pipeline([
+            ('scaler', StandardScaler()),
+            ('regressor', DecisionTreeRegressor(random_state=42))
+        ])
+    elif model_choice == "Neural Network":
+        model = Pipeline([
+            ('scaler', StandardScaler()),
+            ('regressor', MLPRegressor(hidden_layer_sizes=(64, 64), max_iter=1000, early_stopping=True, random_state=42))
+        ])
+
+    # Train the model
+    model.fit(X, y)
+
+    # Make prediction
+    predicted_pm25 = model.predict(input_data)[0]
+    st.success(f"🌫️ Predicted PM2.5 Level using {model_choice}: {predicted_pm25:.2f} µg/m³")
