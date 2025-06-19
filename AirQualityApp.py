@@ -111,7 +111,7 @@ page = st.sidebar.selectbox("Select Page", ["Home", "Dashboard", "Prediction", "
 
 if page == "Home":
     st.markdown("""
-        <h1 style='text-align: center; color: #FF4B4B;'>🌍 Welcome to the Air Quality Dashboard</h1>
+        <h1 style='text-align: center; color: #FF4B4B;'>Welcome to the Air Quality Dashboard</h1>
         <h4 style='text-align: center; color: gray;'>Track, analyze, and predict air quality for healthier communities</h4>
         <br>
         <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px;">
@@ -120,7 +120,6 @@ if page == "Home":
                 <li><b>🌐 Dashboard:</b> Visualize air quality trends by city and pollutant</li>
                 <li><b>🔮 Prediction:</b> Estimate PM2.5 levels using machine learning</li>
                 <li><b>📜 Policy Simulation:</b> Test how emission reductions affect air quality</li>
-                <li><b>📱 Mobile-Friendly:</b> Accessible on phones and tablets</li>
             </ul>
         </div>
         <br>
@@ -132,7 +131,7 @@ if page == "Home":
 
 elif page == "Dashboard":
     st.markdown("""
-        <h1 style='text-align: center; color: #FF4B4B;'>🌍 Air Quality Dashboard</h1>
+        <h1 style='text-align: center; color: #FF4B4B;'>Air Quality Dashboard</h1>
         <h4 style='text-align: center; color: gray;'>Track & Visualize Global Pollutant Levels</h4>
     """, unsafe_allow_html=True)
 
@@ -152,7 +151,7 @@ elif page == "Dashboard":
     filtered_df = filtered_df[filtered_df['City'].isin(cities)]
 
     # Map Visualization
-    st.markdown("### 🌍 City Locations")
+    st.markdown("### City Locations")
     city_coords = {
         'Bangkok': (13.7563, 100.5018),
         'Paris': (48.8566, 2.3522),
@@ -173,7 +172,7 @@ elif page == "Dashboard":
     st.plotly_chart(fig, use_container_width=True)
 
     # Time Series Plot
-    st.markdown(f"### 📊 {selected_pollutant} Over Time")
+    st.markdown(f"### {selected_pollutant} Over Time")
     fig, ax = plt.subplots(figsize=(12, 5))
     for city in cities:
         city_data = filtered_df[filtered_df['City'] == city]
@@ -197,7 +196,7 @@ elif page == "Dashboard":
         """, unsafe_allow_html=True)
 
     # Download Data
-    st.sidebar.markdown("### 📥 Download Data")
+    st.sidebar.markdown("### Download Data")
     csv = filtered_df.to_csv(index=False).encode("utf-8")
     st.sidebar.download_button(
         label="Download CSV",
@@ -208,7 +207,7 @@ elif page == "Dashboard":
 
 elif page == "Prediction":
     st.markdown("""
-        <h1 style='text-align: center; color: #FF4B4B;'>🔮 Predict PM2.5 Levels</h1>
+        <h1 style='text-align: center; color: #FF4B4B;'>Predict PM2.5 Levels</h1>
         <h4 style='text-align: center; color: gray;'>Estimate PM2.5 concentration using machine learning</h4>
     """, unsafe_allow_html=True)
 
@@ -220,7 +219,7 @@ elif page == "Prediction":
     )
 
     # Input sliders
-    st.markdown("### 📊 Enter Environmental Conditions")
+    st.markdown("### Enter Environmental Conditions")
     col1, col2 = st.columns(2)
     with col1:
         pm10 = st.slider("PM10 (µg/m³)", 0.0, 200.0, float(df['PM10'].mean()))
@@ -273,7 +272,7 @@ elif page == "Prediction":
     prediction = model.predict(input_data)[0]
 
     # Display results
-    st.markdown("### 🔍 Prediction Results")
+    st.markdown("### Prediction Results")
     aqi = calculate_aqi(prediction)
     status, message, css_class = interpret_pm25(prediction)
 
