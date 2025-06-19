@@ -211,7 +211,7 @@ elif page == "Prediction":
     st.success(f"🌫️ Predicted PM2.5 Level using {model_choice}: {predicted:.2f} µg/m³")
     st.info(interpret_pm25(predicted))
 
-Forecast Feature
+#Forecast Feature
     st.markdown("### ⏰ Optional: Forecast PM2.5 for the Next 7 Days")
     if st.button("Forecast Next Week"):
         future_dates = pd.date_range(df['Date'].max() + timedelta(days=1), periods=7)
