@@ -44,7 +44,7 @@ df = load_data()
 if page == "Home":
     st.markdown(
         """
-        <h1 style='text-align: center; color: #FF4B4B;'> Welcome to the Air Quality Dashboard</h1>
+        <h1 style='text-align: center; color: #FF4B4B;'>🌍 Welcome to the Air Quality Dashboard</h1>
         <h4 style='text-align: center; color: gray;'>Use the page selector above to explore air quality data by country and city</h4>
         <br>
         <ul>
@@ -58,7 +58,6 @@ if page == "Home":
     )
 
 elif page == "Dashboard":
-    # Header
     st.markdown(
         """
         <h1 style='text-align: center; color: #FF4B4B;'>🌍 Air Quality Dashboard</h1>
@@ -68,19 +67,16 @@ elif page == "Dashboard":
         unsafe_allow_html=True
     )
 
-    # Filters
-    st.markdown("### Filter by Location")
+    st.markdown("### 🌐 Filter by Location")
     country = st.selectbox("Select Country", sorted(df['Country'].unique()))
     filtered_df = df[df['Country'] == country]
     cities = st.multiselect("Select Cities", sorted(filtered_df['City'].unique()), default=sorted(filtered_df['City'].unique())[:1])
     filtered_df = filtered_df[filtered_df['City'].isin(cities)]
 
-    # Pollutant Selection
     pollutants = ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3']
     selected_pollutant = st.selectbox("Select Pollutant to Visualize", pollutants)
 
-    # Line Chart
-    st.markdown(f"### {selected_pollutant} Over Time")
+    st.markdown(f"### 📊 {selected_pollutant} Over Time")
     fig, ax = plt.subplots(figsize=(12, 5))
     for city in cities:
         city_data = filtered_df[filtered_df['City'] == city]
@@ -92,70 +88,45 @@ elif page == "Dashboard":
     ax.grid(True)
     st.pyplot(fig)
 
-    # Distribution
-    st.markdown(f"### Distribution of {selected_pollutant}")
+    st.markdown(f"### 📊 Distribution of {selected_pollutant}")
     fig, ax = plt.subplots(figsize=(10, 5))
     sns.histplot(filtered_df, x=selected_pollutant, hue='City', kde=True, ax=ax, bins=30)
     st.pyplot(fig)
 
-    # Data Table
-    st.markdown("### Average Pollutant Levels by City")
+    st.markdown("### 📄 Average Pollutant Levels by City")
     avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
     st.dataframe(avg_pollutants)
 
 elif page == "Prediction":
     st.markdown("""
-        <h1 style='text-align: center; color: #FF4B4B;'> Predict PM2.5 Levels</h1>
-        <h4 style='text-align: center; color: gray;'>Enter pollutant & weather data to estimate PM2.5 concentration</h4>
+        <h1 style='text-align: center; color: #FF4B4B;'>🔮 Batch Predict PM2.5 Levels</h1>
+        <h4 style='text-align: center; color: gray;'>Upload a CSV file to predict PM2.5 for multiple rows</h4>
         <br>
         """, unsafe_allow_html=True)
 
-    # Input features
-    st.markdown("### Enter Features")
-    PM10 = st.number_input("PM10", 0.0, 500.0, 50.0)
-    NO2 = st.number_input("NO2", 0.0, 200.0, 20.0)
-    SO2 = st.number_input("SO2", 0.0, 100.0, 10.0)
-    CO = st.number_input("CO", 0.0, 15.0, 1.0)
-    O3 = st.number_input("O3", 0.0, 300.0, 50.0)
-    Temperature = st.number_input("Temperature (°C)", -30.0, 50.0, 25.0)
-    Humidity = st.number_input("Humidity (%)", 0.0, 100.0, 50.0)
-    WindSpeed = st.number_input("Wind Speed (km/h)", 0.0, 100.0, 10.0)
+    sample_df = df[['PM10', 'NO2', 'SO2', 'CO', 'O3', 'Temperature', 'Humidity', 'Wind Speed', 'PM2.5']].head()
+    st.download_button("📥 Download Sample Format", sample_df.to_csv(index=False), "sample_input.csv")
 
-    input_data = np.array([[PM10, NO2, SO2, CO, O3, Temperature, Humidity, WindSpeed]])
+    uploaded_file = st.file_uploader("Upload CSV File", type="csv")
 
-    # Feature columns
-    features = ['PM10', 'NO2', 'SO2', 'CO', 'O3', 'Temperature', 'Humidity', 'Wind Speed']
-    X = df[features]
-    y = df['PM2.5']
+    if uploaded_file is not None:
+        user_df = pd.read_csv(uploaded_file)
+        try:
+            features = ['PM10', 'NO2', 'SO2', 'CO', 'O3', 'Temperature', 'Humidity', 'Wind Speed']
+            X_user = user_df[features]
 
-    # Model selection
-    st.markdown("### Choose a Model")
-    model_choice = st.selectbox("Select Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
+            model = Pipeline([
+                ('scaler', StandardScaler()),
+                ('regressor', RandomForestRegressor(n_estimators=100, random_state=42))
+            ])
+            X_train = df[features]
+            y_train = df['PM2.5']
+            model.fit(X_train, y_train)
 
-    if model_choice == "Linear Regression":
-        model = Pipeline([
-            ('scaler', StandardScaler()),
-            ('regressor', LinearRegression())
-        ])
-    elif model_choice == "Random Forest":
-        model = Pipeline([
-            ('scaler', StandardScaler()),
-            ('regressor', RandomForestRegressor(n_estimators=100, random_state=42))
-        ])
-    elif model_choice == "Decision Tree":
-        model = Pipeline([
-            ('scaler', StandardScaler()),
-            ('regressor', DecisionTreeRegressor(random_state=42))
-        ])
-    elif model_choice == "Neural Network":
-        model = Pipeline([
-            ('scaler', StandardScaler()),
-            ('regressor', MLPRegressor(hidden_layer_sizes=(64, 64), max_iter=1000, early_stopping=True, random_state=42))
-        ])
+            user_df['Predicted PM2.5'] = model.predict(X_user)
+            st.success("✅ Prediction complete!")
+            st.dataframe(user_df)
 
-    # Train the model
-    model.fit(X, y)
-
-    # Make prediction
-    predicted_pm25 = model.predict(input_data)[0]
-    st.success(f"Predicted PM2.5 Level using {model_choice}: {predicted_pm25:.2f} µg/m³")
+            st.download_button("📤 Download Predictions", user_df.to_csv(index=False), "predictions.csv")
+        except Exception as e:
+            st.error(f"⚠️ Error in input file: {e}")
