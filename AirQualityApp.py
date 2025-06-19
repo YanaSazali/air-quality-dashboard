@@ -130,6 +130,41 @@ elif page == "Prediction":
 
     model.fit(X, y)
 
+        st.markdown("### 📊 Model Comparison on Current Data")
+
+    @st.cache_data
+    def compare_models(X, y):
+        models = {
+            'Linear Regression': Pipeline([('scaler', StandardScaler()), ('model', LinearRegression())]),
+            'Random Forest': Pipeline([('scaler', StandardScaler()), ('model', RandomForestRegressor(n_estimators=100, random_state=42))]),
+            'Decision Tree': Pipeline([('scaler', StandardScaler()), ('model', DecisionTreeRegressor(random_state=42))]),
+            'Neural Network': Pipeline([('scaler', StandardScaler()), ('model', MLPRegressor(hidden_layer_sizes=(64, 64), max_iter=1000, early_stopping=True, random_state=42))])
+        }
+
+        results = {}
+        for name, pipe in models.items():
+            pipe.fit(X, y)
+            y_pred = pipe.predict(X)
+            results[name] = {
+                'MAE': mean_absolute_error(y, y_pred),
+                'RMSE': np.sqrt(mean_squared_error(y, y_pred)),
+                'R²': r2_score(y, y_pred)
+            }
+
+        return pd.DataFrame(results).T.reset_index().rename(columns={"index": "Model"})
+
+    model_metrics = compare_models(X, y)
+    st.dataframe(model_metrics)
+
+    # Optional: Add bar plot
+    plot_df = model_metrics.melt(id_vars="Model", var_name="Metric", value_name="Value")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    sns.barplot(data=plot_df, x="Model", y="Value", hue="Metric", ax=ax)
+    ax.set_title("Model Evaluation Metrics")
+    ax.set_ylabel("Score")
+    st.pyplot(fig)
+
+
     st.markdown("### 📥 Enter Feature Values")
     input_dict = {col: st.number_input(col, value=float(df[col].mean())) for col in feature_cols}
     input_array = np.array([list(input_dict.values())])
@@ -150,37 +185,4 @@ elif page == "Prediction":
     st.success(f"🌫️ Predicted PM2.5 Level using {model_choice}: {predicted:.2f} µg/m³")
     st.info(interpret_pm25(predicted))
 
-    st.markdown("### ⏰ Optional: Forecast PM2.5 for the Next 7 Days")
-    if st.button("Forecast Next Week"):
-        future_dates = pd.date_range(df['Date'].max() + timedelta(days=1), periods=7)
-        last_row = df.iloc[-1].copy()
-        forecast_results = []
-        for date in future_dates:
-            features = last_row[feature_cols].copy()
-            features['Month'] = date.month
-            features['Day'] = date.day
-            features['Weekday'] = date.weekday()
-            features['Is_Weekend'] = 1 if date.weekday() >= 5 else 0
-            prediction = model.predict([features])[0]
-            forecast_results.append((date.strftime('%Y-%m-%d'), prediction))
-            last_row['Lag_PM2.5'] = prediction
-            last_row['Rolling_PM2.5'] = (last_row['Rolling_PM2.5'] + prediction) / 2
-
-        forecast_df = pd.DataFrame(forecast_results, columns=["Date", "Predicted PM2.5"])
-        st.dataframe(forecast_df)
-        fig, ax = plt.subplots()
-        sns.lineplot(data=forecast_df, x="Date", y="Predicted PM2.5", marker='o')
-        ax.set_title("Forecasted PM2.5 for the Next 7 Days")
-        ax.set_ylabel("PM2.5 µg/m³")
-        st.pyplot(fig)
-
-    if model_choice == "Random Forest":
-        st.markdown("### 📊 Feature Importance (Random Forest)")
-        importances = model.named_steps['model'].feature_importances_
-        importance_df = pd.DataFrame({'Feature': feature_cols, 'Importance': importances})
-        importance_df = importance_df.sort_values(by='Importance', ascending=False)
-        st.dataframe(importance_df)
-        fig, ax = plt.subplots()
-        sns.barplot(data=importance_df, x='Importance', y='Feature', ax=ax)
-        ax.set_title("Feature Importance")
-        st.pyplot(fig)
+   
