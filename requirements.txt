@@ -4,4 +4,4 @@ numpy
 matplotlib
 seaborn
 scikit-learn
-pydeck
+plotly
