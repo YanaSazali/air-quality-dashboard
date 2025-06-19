@@ -105,7 +105,7 @@ elif page == "Dashboard":
 
 elif page == "Prediction":
     st.markdown("""
-        <h1 style='text-align: center; color: #FF4B4B;'>🔮 Predict PM2.5 Levels</h1>
+        <h1 style='text-align: center; color: #FF4B4B;'> Predict PM2.5 Levels</h1>
         <h4 style='text-align: center; color: gray;'>Enter pollutant & weather data to estimate PM2.5 concentration</h4>
         <br>
         """, unsafe_allow_html=True)
