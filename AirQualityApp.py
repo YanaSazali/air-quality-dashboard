@@ -47,7 +47,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Load and clean data
-@st.cache_data
+@st.cache_resource
 def load_data():
     df = pd.read_csv("AirQuality_Global.csv")
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
