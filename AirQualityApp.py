@@ -183,13 +183,6 @@ elif page == "Prediction":
 
     model.fit(X, y)
     
-    @st.cache_data
-    def train_model(model):
-        model.fit(X, y)
-        return model
-
-    model = train_model(model)
-
     st.markdown("### 📅 Enter Feature Values")
     input_dict = {col: st.number_input(col, value=float(df[col].mean())) for col in feature_cols}
     input_array = np.array([list(input_dict.values())])
