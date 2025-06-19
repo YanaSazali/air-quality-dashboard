@@ -57,7 +57,8 @@ df['Rolling_PM2.5'] = df.groupby('City')['PM2.5'].transform(lambda x: x.rolling(
 df = df.dropna()
 
 if page == "Home":
-    st.markdown("""
+    st.markdown(
+        """
         <h1 style='text-align: center; color: #FF4B4B;'>🌍 Welcome to the Air Quality Dashboard</h1>
         <h4 style='text-align: center; color: gray;'>Use the page selector above to explore air quality data by country and city</h4>
         <br>
@@ -67,11 +68,49 @@ if page == "Home":
             <li>Download filtered datasets for analysis</li>
             <li>Use prediction tool to estimate PM2.5 levels</li>
         </ul>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
 elif page == "Dashboard":
-    # [Dashboard code remains unchanged]
-    ...
+    st.markdown(
+        """
+        <h1 style='text-align: center; color: #FF4B4B;'>🌍 Air Quality Dashboard</h1>
+        <h4 style='text-align: center; color: gray;'>Track & Visualize Global Pollutant Levels</h4>
+        <br>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown("### 🌐 Filter by Location")
+    country = st.selectbox("Select Country", sorted(df['Country'].unique()))
+    filtered_df = df[df['Country'] == country]
+    cities = st.multiselect("Select Cities", sorted(filtered_df['City'].unique()), default=sorted(filtered_df['City'].unique())[:1])
+    filtered_df = filtered_df[filtered_df['City'].isin(cities)]
+
+    pollutants = ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3']
+    selected_pollutant = st.selectbox("Select Pollutant to Visualize", pollutants)
+
+    st.markdown(f"### 📊 {selected_pollutant} Over Time")
+    fig, ax = plt.subplots(figsize=(12, 5))
+    for city in cities:
+        city_data = filtered_df[filtered_df['City'] == city]
+        city_avg = city_data.groupby('Date')[selected_pollutant].mean()
+        ax.plot(city_avg.index, city_avg.values, label=city)
+    ax.set_ylabel(f"{selected_pollutant} concentration")
+    ax.set_xlabel("Date")
+    ax.legend()
+    ax.grid(True)
+    st.pyplot(fig)
+
+    st.markdown(f"### 📊 Distribution of {selected_pollutant}")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    sns.histplot(filtered_df, x=selected_pollutant, hue='City', kde=True, ax=ax, bins=30)
+    st.pyplot(fig)
+
+    st.markdown("### 📄 Average Pollutant Levels by City")
+    avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
+    st.dataframe(avg_pollutants)
 
 elif page == "Prediction":
     st.markdown("""
@@ -107,17 +146,3 @@ elif page == "Prediction":
     input_array = np.array([list(input_dict.values())])
     predicted = model.predict(input_array)[0]
     st.success(f"🌫️ Predicted PM2.5 Level using {model_choice}: {predicted:.2f} µg/m³")
-
-    st.markdown("### 📤 Or Upload a CSV File for Batch Prediction")
-    uploaded_file = st.file_uploader("Upload a CSV file with the same feature columns", type=["csv"])
-
-    if uploaded_file is not None:
-        try:
-            user_df = pd.read_csv(uploaded_file)
-            user_X = user_df[feature_cols]
-            user_df['Predicted_PM2.5'] = model.predict(user_X)
-            st.success("✅ Batch prediction complete!")
-            st.dataframe(user_df)
-            st.download_button("Download Predictions", user_df.to_csv(index=False), file_name="predicted_pm25.csv", mime="text/csv")
-        except Exception as e:
-            st.error(f"⚠️ Error processing file: {e}")
