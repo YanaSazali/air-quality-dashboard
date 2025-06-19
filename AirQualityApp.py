@@ -44,7 +44,7 @@ df = load_data()
 if page == "Home":
     st.markdown(
         """
-        <h1 style='text-align: center; color: #FF4B4B;'>🌍 Welcome to the Air Quality Dashboard</h1>
+        <h1 style='text-align: center; color: #FF4B4B;'> Welcome to the Air Quality Dashboard</h1>
         <h4 style='text-align: center; color: gray;'>Use the page selector above to explore air quality data by country and city</h4>
         <br>
         <ul>
@@ -69,7 +69,7 @@ elif page == "Dashboard":
     )
 
     # Filters
-    st.markdown("### 🌐 Filter by Location")
+    st.markdown("### Filter by Location")
     country = st.selectbox("Select Country", sorted(df['Country'].unique()))
     filtered_df = df[df['Country'] == country]
     cities = st.multiselect("Select Cities", sorted(filtered_df['City'].unique()), default=sorted(filtered_df['City'].unique())[:1])
@@ -80,7 +80,7 @@ elif page == "Dashboard":
     selected_pollutant = st.selectbox("Select Pollutant to Visualize", pollutants)
 
     # Line Chart
-    st.markdown(f"### 📊 {selected_pollutant} Over Time")
+    st.markdown(f"### {selected_pollutant} Over Time")
     fig, ax = plt.subplots(figsize=(12, 5))
     for city in cities:
         city_data = filtered_df[filtered_df['City'] == city]
@@ -93,13 +93,13 @@ elif page == "Dashboard":
     st.pyplot(fig)
 
     # Distribution
-    st.markdown(f"### 📊 Distribution of {selected_pollutant}")
+    st.markdown(f"### Distribution of {selected_pollutant}")
     fig, ax = plt.subplots(figsize=(10, 5))
     sns.histplot(filtered_df, x=selected_pollutant, hue='City', kde=True, ax=ax, bins=30)
     st.pyplot(fig)
 
     # Data Table
-    st.markdown("### 📄 Average Pollutant Levels by City")
+    st.markdown("### Average Pollutant Levels by City")
     avg_pollutants = filtered_df.groupby('City')[pollutants].mean().round(2)
     st.dataframe(avg_pollutants)
 
@@ -111,7 +111,7 @@ elif page == "Prediction":
         """, unsafe_allow_html=True)
 
     # Input features
-    st.markdown("### 📥 Enter Features")
+    st.markdown("### Enter Features")
     PM10 = st.number_input("PM10", 0.0, 500.0, 50.0)
     NO2 = st.number_input("NO2", 0.0, 200.0, 20.0)
     SO2 = st.number_input("SO2", 0.0, 100.0, 10.0)
@@ -129,7 +129,7 @@ elif page == "Prediction":
     y = df['PM2.5']
 
     # Model selection
-    st.markdown("### 🤖 Choose a Model")
+    st.markdown("### Choose a Model")
     model_choice = st.selectbox("Select Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
 
     if model_choice == "Linear Regression":
@@ -158,4 +158,4 @@ elif page == "Prediction":
 
     # Make prediction
     predicted_pm25 = model.predict(input_data)[0]
-    st.success(f"🌫️ Predicted PM2.5 Level using {model_choice}: {predicted_pm25:.2f} µg/m³")
+    st.success(f"Predicted PM2.5 Level using {model_choice}: {predicted_pm25:.2f} µg/m³")
