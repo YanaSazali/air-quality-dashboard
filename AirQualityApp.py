@@ -71,40 +71,8 @@ if page == "Home":
     """, unsafe_allow_html=True)
 
 elif page == "Dashboard":
-    st.markdown("### 📊 Model Performance Comparison")
-
-    @st.cache_data
-    def train_models():
-        X = df[[
-            'PM10', 'NO2', 'SO2', 'CO', 'O3', 'Temperature', 'Humidity', 'Wind Speed',
-            'Month', 'Day', 'Weekday', 'Is_Weekend', 'City_Mean_PM25', 'PM_Ratio',
-            'Humidity_Temp', 'O3_NO2', 'Lag_PM2.5', 'Rolling_PM2.5']]
-        y = df['PM2.5']
-        models = {
-            'Linear Regression': Pipeline([('scaler', StandardScaler()), ('model', LinearRegression())]),
-            'Random Forest': Pipeline([('scaler', StandardScaler()), ('model', RandomForestRegressor(n_estimators=100, random_state=42))]),
-            'Decision Tree': Pipeline([('scaler', StandardScaler()), ('model', DecisionTreeRegressor(random_state=42))]),
-            'Neural Network': Pipeline([('scaler', StandardScaler()), ('model', MLPRegressor(hidden_layer_sizes=(64, 64), max_iter=1000, early_stopping=True, random_state=42))])
-        }
-        results = {}
-        for name, pipe in models.items():
-            pipe.fit(X, y)
-            y_pred = pipe.predict(X)
-            results[name] = {
-                'MAE': mean_absolute_error(y, y_pred),
-                'RMSE': np.sqrt(mean_squared_error(y, y_pred)),
-                'R²': r2_score(y, y_pred)
-            }
-        return pd.DataFrame(results).T.reset_index().rename(columns={'index': 'Model'})
-
-    model_results = train_models()
-    st.dataframe(model_results)
-    model_melt = model_results.melt(id_vars='Model', var_name='Metric', value_name='Score')
-    fig, ax = plt.subplots(figsize=(10, 5))
-    sns.barplot(data=model_melt, x='Model', y='Score', hue='Metric', ax=ax)
-    ax.set_title("Model Performance Comparison")
-    ax.set_ylabel("Score")
-    st.pyplot(fig)
+    st.markdown("### 📈 Explore Air Quality Data")
+    st.write("Use the filters and visualizations in the Prediction page to explore data.")
 
 elif page == "Prediction":
     st.markdown("""
