@@ -1,3 +1,4 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -9,11 +10,6 @@ from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
-import streamlit as st
-
-# Initialize global dataframe at the very top
-global df
-df = None
 
 # Page configuration
 st.set_page_config(page_title="Air Quality Dashboard", layout="wide", initial_sidebar_state="expanded")
@@ -36,22 +32,10 @@ st.markdown("""
 # Load processed data
 @st.cache_resource
 def load_data():
-    global df  # Declare we're using the global df
-    try:
-        df = pd.read_csv("AirQuality_Final_Processed.csv")
-        df['Date'] = pd.to_datetime(df['Date'])
-        
-        # Calculate city averages if needed
-        if 'City_Mean_PM25' not in df.columns and 'PM2.5' in df.columns:
-            city_means = df.groupby('City')['PM2.5'].transform('mean')
-            df['City_Mean_PM25'] = city_means
-            
-        return df
-    except FileNotFoundError:
-        st.warning("Default dataset not found. Please upload your data in the 'Upload Data' section.")
-        return pd.DataFrame()
+    df = pd.read_csv("AirQuality_Final_Processed.csv")
+    df['Date'] = pd.to_datetime(df['Date'])
+    return df
 
-# Load initial data
 df = load_data()
 
 # AQI calculator
@@ -88,7 +72,7 @@ def simulate_policy_change(base_values, adjustments):
     return adjusted
 
 # Sidebar page selection
-page = st.sidebar.selectbox("Select Page", ["Home", "Dashboard", "Prediction", "Policy Simulation", "Upload Data"])
+page = st.sidebar.selectbox("Select Page", ["Home", "Dashboard", "Prediction", "Policy Simulation"])
 
 # Home Page
 if page == "Home":
@@ -102,7 +86,6 @@ if page == "Home":
                 <li><b>🌐 Dashboard:</b> Visualize air quality trends by city and pollutant</li>
                 <li><b>🔮 Prediction:</b> Estimate PM2.5 levels using machine learning</li>
                 <li><b>📜 Policy Simulation:</b> Test how emission reductions affect air quality</li>
-                <li><b>📤 Data Upload:</b> Use your own air quality data with our dashboard</li>
             </ul>
         </div>
         <br>
@@ -115,10 +98,6 @@ if page == "Home":
 # Dashboard Page
 elif page == "Dashboard":
     st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>Air Quality Dashboard</h1>", unsafe_allow_html=True)
-    
-    if df.empty:
-        st.warning("No data available. Please upload data in the 'Upload Data' section.")
-        st.stop()
 
     country = st.sidebar.selectbox("Select Country", sorted(df['Country'].unique()))
     filtered_df = df[df['Country'] == country]
@@ -133,6 +112,7 @@ elif page == "Dashboard":
     city_coords = {
         'Bangkok': (13.7563, 100.5018),
         'Paris': (48.8566, 2.3522),
+        # Add more if needed
     }
     map_df = pd.DataFrame({
         'City': cities,
@@ -141,7 +121,7 @@ elif page == "Dashboard":
         'PM2.5': [filtered_df[filtered_df['City'] == city]['PM2.5'].mean() for city in cities]
     })
     fig = px.scatter_mapbox(map_df, lat="Lat", lon="Lon", hover_name="City", size="PM2.5", color="PM2.5",
-                          zoom=4, height=300, color_continuous_scale=px.colors.sequential.Viridis)
+                            zoom=4, height=300, color_continuous_scale=px.colors.sequential.Viridis)
     fig.update_layout(mapbox_style="open-street-map")
     st.plotly_chart(fig, use_container_width=True)
 
@@ -176,10 +156,6 @@ elif page == "Dashboard":
 # Prediction Page
 elif page == "Prediction":
     st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>Predict PM2.5 Levels</h1>", unsafe_allow_html=True)
-    
-    if df.empty:
-        st.warning("No data available. Please upload data in the 'Upload Data' section.")
-        st.stop()
 
     model_name = st.selectbox("Choose Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
 
@@ -234,10 +210,6 @@ elif page == "Prediction":
 # Policy Simulation Page
 elif page == "Policy Simulation":
     st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>🏛️ Policy Simulation</h1>", unsafe_allow_html=True)
-    
-    if df.empty:
-        st.warning("No data available. Please upload data in the 'Upload Data' section.")
-        st.stop()
 
     col1, col2 = st.columns(2)
     with col1:
@@ -271,80 +243,3 @@ elif page == "Policy Simulation":
         else:
             st.warning(f"⚠️ Policy increases PM2.5 by {(new_pred - baseline):.1f} µg/m³")
 
-# Upload Data Page
-elif page == "Upload Data":
-    st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>Upload Your Air Quality Data</h1>", unsafe_allow_html=True)
-    
-    st.markdown("""
-    ### 📤 Upload Instructions
-    1. Prepare your data in CSV format
-    2. Ensure your file contains these columns (or similar):
-       - Date, City, Country, PM2.5, PM10, NO2, SO2, CO, O3, Temperature, Humidity, Wind Speed
-    3. The system will try to automatically match your columns
-    """)
-    
-    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
-    
-    if uploaded_file is not None:
-        try:
-            # Read the uploaded file
-            user_df = pd.read_csv(uploaded_file)
-            
-            # Show preview
-            st.markdown("### 📋 Data Preview (First 5 Rows)")
-            st.dataframe(user_df.head())
-            
-            # Check for required columns
-            required_cols = ['Date', 'City', 'Country', 'PM2.5']
-            missing_cols = [col for col in required_cols if col not in user_df.columns]
-            
-            if missing_cols:
-                st.error(f"Missing required columns: {', '.join(missing_cols)}")
-            else:
-                # Data processing
-                try:
-                    # Convert date if needed
-                    if 'Date' in user_df.columns:
-                        user_df['Date'] = pd.to_datetime(user_df['Date'])
-                    
-                    # Calculate city averages if needed
-                    if 'City_Mean_PM25' not in user_df.columns and 'PM2.5' in user_df.columns:
-                        city_means = user_df.groupby('City')['PM2.5'].transform('mean')
-                        user_df['City_Mean_PM25'] = city_means
-                    
-                    # Update the global dataframe
-                    global df
-                    df = user_df
-                    
-                    # Clear the cache to force reload
-                    load_data.clear()
-                    
-                    st.success("✅ Data uploaded successfully! You can now explore it in the Dashboard.")
-                    
-                    # Show basic stats
-                    st.markdown("### 📊 Basic Statistics")
-                    st.dataframe(df.describe())
-                    
-                except Exception as e:
-                    st.error(f"Error processing data: {str(e)}")
-        
-        except Exception as e:
-            st.error(f"Error reading file: {str(e)}")
-    
-    # Data format example
-    with st.expander("📝 Example Data Format"):
-        example_data = {
-            'Date': ['2023-01-01', '2023-01-02'],
-            'City': ['New York', 'New York'],
-            'Country': ['USA', 'USA'],
-            'PM2.5': [12.5, 15.2],
-            'PM10': [25.1, 30.4],
-            'NO2': [10.2, 12.5],
-            'SO2': [5.1, 6.2],
-            'CO': [1.2, 1.5],
-            'O3': [40.1, 45.3],
-            'Temperature': [15.2, 16.5],
-            'Humidity': [65.2, 70.1],
-            'Wind Speed': [10.5, 12.3]
-        }
-        st.table(pd.DataFrame(example_data))
