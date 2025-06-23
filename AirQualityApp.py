@@ -9,8 +9,10 @@ from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
+import streamlit as st
 
 # Initialize global dataframe at the very top
+global df
 df = None
 
 # Page configuration
@@ -34,21 +36,21 @@ st.markdown("""
 # Load processed data
 @st.cache_resource
 def load_data():
-    global df
     try:
-        df = pd.read_csv("AirQuality_Final_Processed.csv")
-        df['Date'] = pd.to_datetime(df['Date'])
+        loaded_df = pd.read_csv("AirQuality_Final_Processed.csv")
+        loaded_df['Date'] = pd.to_datetime(loaded_df['Date'])
         
         # Calculate city averages if needed
-        if 'City_Mean_PM25' not in df.columns and 'PM2.5' in df.columns:
-            city_means = df.groupby('City')['PM2.5'].transform('mean')
-            df['City_Mean_PM25'] = city_means
+        if 'City_Mean_PM25' not in loaded_df.columns and 'PM2.5' in loaded_df.columns:
+            city_means = loaded_df.groupby('City')['PM2.5'].transform('mean')
+            loaded_df['City_Mean_PM25'] = city_means
             
-        return df
+        return loaded_df
     except FileNotFoundError:
         st.warning("Default dataset not found. Please upload your data in the 'Upload Data' section.")
         return pd.DataFrame()
 
+# Initialize df with loaded data
 df = load_data()
 
 # AQI calculator
