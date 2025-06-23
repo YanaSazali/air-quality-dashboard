@@ -72,7 +72,7 @@ def simulate_policy_change(base_values, adjustments):
     return adjusted
 
 # Sidebar page selection
-page = st.sidebar.selectbox("Select Page", ["Home", "Dashboard", "Prediction", "Policy Simulation"])
+page = st.sidebar.selectbox("Select Page", ["Home", "Dashboard", "Prediction", "Policy Simulation", "Upload Data"])
 
 # Home Page
 if page == "Home":
@@ -242,3 +242,83 @@ elif page == "Policy Simulation":
             st.success(f"✅ Policy reduces PM2.5 by {(baseline - new_pred):.1f} µg/m³")
         else:
             st.warning(f"⚠️ Policy increases PM2.5 by {(new_pred - baseline):.1f} µg/m³")
+
+
+elif page == "Upload Data":
+    st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>Upload Your Air Quality Data</h1>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    ### 📤 Upload Instructions
+    1. Prepare your data in CSV format
+    2. Ensure your file contains these columns (or similar):
+       - Date, City, Country, PM2.5, PM10, NO2, SO2, CO, O3, Temperature, Humidity, Wind Speed
+    3. The system will try to automatically match your columns
+    """)
+    
+    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+    
+    if uploaded_file is not None:
+        try:
+            # Read the uploaded file
+            user_df = pd.read_csv(uploaded_file)
+            
+            # Show preview
+            st.markdown("### 📋 Data Preview (First 5 Rows)")
+            st.dataframe(user_df.head())
+            
+            # Check for required columns
+            required_cols = ['Date', 'City', 'Country', 'PM2.5']
+            missing_cols = [col for col in required_cols if col not in user_df.columns]
+            
+            if missing_cols:
+                st.error(f"Missing required columns: {', '.join(missing_cols)}")
+            else:
+                # Data processing
+                try:
+                    # Convert date if needed
+                    if 'Date' in user_df.columns:
+                        user_df['Date'] = pd.to_datetime(user_df['Date'])
+                    
+                    # Calculate city averages if needed
+                    if 'City_Mean_PM25' not in user_df.columns and 'PM2.5' in user_df.columns:
+                        city_means = user_df.groupby('City')['PM2.5'].transform('mean')
+                        user_df['City_Mean_PM25'] = city_means
+                    
+                    # Update the global dataframe
+                    global df
+                    df = user_df
+                    
+                    # Update the cached data
+                    @st.cache_resource
+                    def update_data():
+                        return df
+                    
+                    st.success("✅ Data uploaded successfully! You can now explore it in the Dashboard.")
+                    
+                    # Show basic stats
+                    st.markdown("### 📊 Basic Statistics")
+                    st.dataframe(df.describe())
+                    
+                except Exception as e:
+                    st.error(f"Error processing data: {str(e)}")
+        
+        except Exception as e:
+            st.error(f"Error reading file: {str(e)}")
+    
+    # Data format example
+    with st.expander("📝 Example Data Format"):
+        example_data = {
+            'Date': ['2023-01-01', '2023-01-02'],
+            'City': ['New York', 'New York'],
+            'Country': ['USA', 'USA'],
+            'PM2.5': [12.5, 15.2],
+            'PM10': [25.1, 30.4],
+            'NO2': [10.2, 12.5],
+            'SO2': [5.1, 6.2],
+            'CO': [1.2, 1.5],
+            'O3': [40.1, 45.3],
+            'Temperature': [15.2, 16.5],
+            'Humidity': [65.2, 70.1],
+            'Wind Speed': [10.5, 12.3]
+        }
+        st.table(pd.DataFrame(example_data))
