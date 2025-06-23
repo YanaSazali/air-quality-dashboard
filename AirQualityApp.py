@@ -11,6 +11,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
 
+# Initialize global dataframe
+global df
+df = None
+
 # Page configuration
 st.set_page_config(page_title="Air Quality Dashboard", layout="wide", initial_sidebar_state="expanded")
 
@@ -32,9 +36,20 @@ st.markdown("""
 # Load processed data
 @st.cache_resource
 def load_data():
-    df = pd.read_csv("AirQuality_Final_Processed.csv")
-    df['Date'] = pd.to_datetime(df['Date'])
-    return df
+    global df
+    try:
+        df = pd.read_csv("AirQuality_Final_Processed.csv")
+        df['Date'] = pd.to_datetime(df['Date'])
+        
+        # Calculate city averages if needed
+        if 'City_Mean_PM25' not in df.columns and 'PM2.5' in df.columns:
+            city_means = df.groupby('City')['PM2.5'].transform('mean')
+            df['City_Mean_PM25'] = city_means
+            
+        return df
+    except FileNotFoundError:
+        st.warning("Default dataset not found. Please upload your data in the 'Upload Data' section.")
+        return pd.DataFrame()
 
 df = load_data()
 
@@ -86,6 +101,7 @@ if page == "Home":
                 <li><b>🌐 Dashboard:</b> Visualize air quality trends by city and pollutant</li>
                 <li><b>🔮 Prediction:</b> Estimate PM2.5 levels using machine learning</li>
                 <li><b>📜 Policy Simulation:</b> Test how emission reductions affect air quality</li>
+                <li><b>📤 Data Upload:</b> Use your own air quality data with our dashboard</li>
             </ul>
         </div>
         <br>
@@ -98,6 +114,10 @@ if page == "Home":
 # Dashboard Page
 elif page == "Dashboard":
     st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>Air Quality Dashboard</h1>", unsafe_allow_html=True)
+    
+    if df.empty:
+        st.warning("No data available. Please upload data in the 'Upload Data' section.")
+        st.stop()
 
     country = st.sidebar.selectbox("Select Country", sorted(df['Country'].unique()))
     filtered_df = df[df['Country'] == country]
@@ -156,6 +176,10 @@ elif page == "Dashboard":
 # Prediction Page
 elif page == "Prediction":
     st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>Predict PM2.5 Levels</h1>", unsafe_allow_html=True)
+    
+    if df.empty:
+        st.warning("No data available. Please upload data in the 'Upload Data' section.")
+        st.stop()
 
     model_name = st.selectbox("Choose Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
 
@@ -210,6 +234,10 @@ elif page == "Prediction":
 # Policy Simulation Page
 elif page == "Policy Simulation":
     st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>🏛️ Policy Simulation</h1>", unsafe_allow_html=True)
+    
+    if df.empty:
+        st.warning("No data available. Please upload data in the 'Upload Data' section.")
+        st.stop()
 
     col1, col2 = st.columns(2)
     with col1:
@@ -243,7 +271,7 @@ elif page == "Policy Simulation":
         else:
             st.warning(f"⚠️ Policy increases PM2.5 by {(new_pred - baseline):.1f} µg/m³")
 
-
+# Upload Data Page
 elif page == "Upload Data":
     st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>Upload Your Air Quality Data</h1>", unsafe_allow_html=True)
     
@@ -288,10 +316,8 @@ elif page == "Upload Data":
                     global df
                     df = user_df
                     
-                    # Update the cached data
-                    @st.cache_resource
-                    def update_data():
-                        return df
+                    # Clear the cache to force reload
+                    load_data.clear()
                     
                     st.success("✅ Data uploaded successfully! You can now explore it in the Dashboard.")
                     
