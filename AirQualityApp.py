@@ -36,21 +36,22 @@ st.markdown("""
 # Load processed data
 @st.cache_resource
 def load_data():
+    global df  # Declare we're using the global df
     try:
-        loaded_df = pd.read_csv("AirQuality_Final_Processed.csv")
-        loaded_df['Date'] = pd.to_datetime(loaded_df['Date'])
+        df = pd.read_csv("AirQuality_Final_Processed.csv")
+        df['Date'] = pd.to_datetime(df['Date'])
         
         # Calculate city averages if needed
-        if 'City_Mean_PM25' not in loaded_df.columns and 'PM2.5' in loaded_df.columns:
-            city_means = loaded_df.groupby('City')['PM2.5'].transform('mean')
-            loaded_df['City_Mean_PM25'] = city_means
+        if 'City_Mean_PM25' not in df.columns and 'PM2.5' in df.columns:
+            city_means = df.groupby('City')['PM2.5'].transform('mean')
+            df['City_Mean_PM25'] = city_means
             
-        return loaded_df
+        return df
     except FileNotFoundError:
         st.warning("Default dataset not found. Please upload your data in the 'Upload Data' section.")
         return pd.DataFrame()
 
-# Initialize df with loaded data
+# Load initial data
 df = load_data()
 
 # AQI calculator
@@ -132,7 +133,6 @@ elif page == "Dashboard":
     city_coords = {
         'Bangkok': (13.7563, 100.5018),
         'Paris': (48.8566, 2.3522),
-        # Add more if needed
     }
     map_df = pd.DataFrame({
         'City': cities,
@@ -141,7 +141,7 @@ elif page == "Dashboard":
         'PM2.5': [filtered_df[filtered_df['City'] == city]['PM2.5'].mean() for city in cities]
     })
     fig = px.scatter_mapbox(map_df, lat="Lat", lon="Lon", hover_name="City", size="PM2.5", color="PM2.5",
-                            zoom=4, height=300, color_continuous_scale=px.colors.sequential.Viridis)
+                          zoom=4, height=300, color_continuous_scale=px.colors.sequential.Viridis)
     fig.update_layout(mapbox_style="open-street-map")
     st.plotly_chart(fig, use_container_width=True)
 
