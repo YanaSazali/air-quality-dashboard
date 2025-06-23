@@ -29,14 +29,28 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Load processed data
+# File uploader
+uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"])
+
+# Load data
 @st.cache_resource
-def load_data():
-    df = pd.read_csv("AirQuality_Final_Processed.csv")
+def load_data(uploaded_file=None):
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+    else:
+        df = pd.read_csv("AirQuality_Final_Processed.csv")
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 
-df = load_data()
+df = load_data(uploaded_file)
+
+# Dataset info
+with st.sidebar.expander("ℹ️ Dataset Info"):
+    if uploaded_file is not None:
+        st.success("✅ Using uploaded dataset.")
+    else:
+        st.info("📁 Using default dataset.")
+    st.write(f"Records: {df.shape[0]} | Columns: {df.shape[1]}")
 
 # AQI calculator
 def calculate_aqi(pm25):
@@ -107,12 +121,11 @@ elif page == "Dashboard":
 
     filtered_df = filtered_df[filtered_df['City'].isin(cities)]
 
-    # Map view
     st.markdown("### 📍 City Locations")
     city_coords = {
         'Bangkok': (13.7563, 100.5018),
         'Paris': (48.8566, 2.3522),
-        # Add more if needed
+        # Add more cities as needed
     }
     map_df = pd.DataFrame({
         'City': cities,
@@ -125,7 +138,6 @@ elif page == "Dashboard":
     fig.update_layout(mapbox_style="open-street-map")
     st.plotly_chart(fig, use_container_width=True)
 
-    # Time-series line chart
     st.markdown(f"### 📈 {pollutant} Over Time")
     fig, ax = plt.subplots(figsize=(12, 5))
     for city in cities:
@@ -138,7 +150,6 @@ elif page == "Dashboard":
     ax.grid(True)
     st.pyplot(fig)
 
-    # Health alerts
     st.markdown("### ⚠️ Health Alerts")
     for city in cities:
         avg_pm25 = filtered_df[filtered_df['City'] == city]['PM2.5'].mean()
@@ -149,7 +160,6 @@ elif page == "Dashboard":
             </div>
         """, unsafe_allow_html=True)
 
-    # Data download
     csv = filtered_df.to_csv(index=False).encode("utf-8")
     st.sidebar.download_button("Download Filtered CSV", data=csv, file_name=f"air_quality_{country}.csv", mime="text/csv")
 
@@ -159,7 +169,6 @@ elif page == "Prediction":
 
     model_name = st.selectbox("Choose Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
 
-    # Input features
     st.markdown("### Enter Environmental Conditions")
     col1, col2 = st.columns(2)
     with col1:
@@ -173,7 +182,6 @@ elif page == "Prediction":
         wind = st.slider("Wind Speed", 0.0, 20.0, float(df['Wind Speed'].mean()))
         city_avg = st.slider("City Mean PM2.5", 0.0, 150.0, float(df['City_Mean_PM25'].mean()))
 
-    # Create input dataframe
     input_data = pd.DataFrame([{
         'PM10': pm10, 'NO2': no2, 'SO2': df['SO2'].mean(), 'CO': co, 'O3': o3,
         'Temperature': temp, 'Humidity': humidity, 'Wind Speed': wind,
@@ -242,4 +250,3 @@ elif page == "Policy Simulation":
             st.success(f"✅ Policy reduces PM2.5 by {(baseline - new_pred):.1f} µg/m³")
         else:
             st.warning(f"⚠️ Policy increases PM2.5 by {(new_pred - baseline):.1f} µg/m³")
-
