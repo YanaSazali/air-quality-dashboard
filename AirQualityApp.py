@@ -1,4 +1,3 @@
-import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -11,8 +10,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
 
-# Initialize global dataframe
-global df
+# Initialize global dataframe at the very top
 df = None
 
 # Page configuration
