@@ -17,7 +17,6 @@ st.set_page_config(page_title="Air Quality Dashboard", layout="wide", initial_si
 # Custom CSS styling
 st.markdown("""
     <style>
-    body { background-color: #f8f9fa; font-family: Arial, sans-serif; }
     .health-alert {
         padding: 10px; border-radius: 5px; margin: 10px 0;
     }
@@ -34,53 +33,39 @@ uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"]
 
 @st.cache_resource
 def load_data(uploaded_file=None):
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-    else:
-        df = pd.read_csv("AirQuality_Final_Processed.csv")
-
-    if 'Date' not in df.columns:
-        st.error("❌ The dataset must include a 'Date' column.")
+    try:
+        df = pd.read_csv(uploaded_file) if uploaded_file else pd.read_csv("AirQuality_Final_Processed.csv")
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+            df.dropna(subset=['Date'], inplace=True)
+        else:
+            df['Date'] = pd.NaT
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
         st.stop()
-
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-    df = df.dropna(subset=['Date'])
-
-    required_columns = {'Date', 'Country', 'City', 'PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3',
-                        'Temperature', 'Humidity', 'Wind Speed', 'City_Mean_PM25'}
-    missing = required_columns - set(df.columns)
-    if missing:
-        st.error(f"❌ The dataset is missing required columns: {', '.join(missing)}")
-        st.stop()
-
     return df
 
-# Load dataset
 df = load_data(uploaded_file)
 
 # Dataset info
 with st.sidebar.expander("ℹ️ Dataset Info"):
-    if uploaded_file is not None:
-        st.success("✅ Using uploaded dataset.")
-    else:
-        st.info("📁 Using default dataset.")
+    st.success("✅ Uploaded dataset used." if uploaded_file else "📁 Default dataset used.")
     st.write(f"Records: {df.shape[0]} | Columns: {df.shape[1]}")
 
-# AQI calculator
-
 def calculate_aqi(pm25):
-    if pm25 <= 12.0:
-        return ((50-0)/(12.0-0)) * (pm25-0) + 0
-    elif pm25 <= 35.4:
-        return ((100-51)/(35.4-12.1)) * (pm25-12.1) + 51
-    elif pm25 <= 55.4:
-        return ((150-101)/(55.4-35.5)) * (pm25-35.5) + 101
-    elif pm25 <= 150.4:
-        return ((200-151)/(150.4-55.5)) * (pm25-55.5) + 151
-    else:
-        return ((300-201)/(250.4-150.5)) * (pm25-150.5) + 201
-
-# PM2.5 interpretation
+    try:
+        if pm25 <= 12.0:
+            return ((50-0)/(12.0-0)) * (pm25-0) + 0
+        elif pm25 <= 35.4:
+            return ((100-51)/(35.4-12.1)) * (pm25-12.1) + 51
+        elif pm25 <= 55.4:
+            return ((150-101)/(55.4-35.5)) * (pm25-35.5) + 101
+        elif pm25 <= 150.4:
+            return ((200-151)/(150.4-55.5)) * (pm25-55.5) + 151
+        else:
+            return ((300-201)/(250.4-150.5)) * (pm25-150.5) + 201
+    except:
+        return np.nan
 
 def interpret_pm25(value):
     if value <= 12:
@@ -88,24 +73,21 @@ def interpret_pm25(value):
     elif value <= 35.4:
         return ("🟡 Moderate", "Acceptable for most, but sensitive groups may be affected.", "moderate")
     elif value <= 55.4:
-        return ("🟠 Unhealthy for Sensitive Groups", "People with heart/lung disease, children, and older adults should reduce prolonged exertion.", "unhealthy-sensitive")
+        return ("🟠 Unhealthy for Sensitive Groups", "Sensitive individuals should reduce prolonged exertion.", "unhealthy-sensitive")
     elif value <= 150.4:
         return ("🔴 Unhealthy", "Everyone may experience health effects.", "unhealthy")
     else:
-        return ("⚫ Very Unhealthy", "Health warnings for everyone; avoid outdoor activities.", "very-unhealthy")
-
-# Policy simulation logic
+        return ("⚫ Very Unhealthy", "Health warnings for everyone.", "very-unhealthy")
 
 def simulate_policy_change(base_values, adjustments):
     adjusted = base_values.copy()
     for k, v in adjustments.items():
-        adjusted[k] *= (1 + v / 100)
+        adjusted[k] = adjusted.get(k, 0) * (1 + v / 100)
     return adjusted
 
-# Sidebar page selection
 page = st.sidebar.selectbox("Select Page", ["Home", "Dashboard", "Prediction", "Policy Simulation"])
 
-# --- HOME ---
+# Home Page
 if page == "Home":
     st.markdown("""
         <h1 style='text-align: center; color: #FF4B4B;'>Welcome to the Air Quality Dashboard</h1>
@@ -114,117 +96,115 @@ if page == "Home":
         <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px;">
             <h3>📌 Key Features:</h3>
             <ul>
-                <li><b>🌐 Dashboard:</b> Visualize air quality trends by city and pollutant</li>
-                <li><b>🔮 Prediction:</b> Estimate PM2.5 levels using machine learning</li>
-                <li><b>📜 Policy Simulation:</b> Test how emission reductions affect air quality</li>
+                <li><b>🌐 Dashboard:</b> Visualize air quality trends</li>
+                <li><b>🔮 Prediction:</b> Estimate PM2.5 using ML models</li>
+                <li><b>📜 Policy Simulation:</b> Assess pollution reduction impact</li>
             </ul>
         </div>
-        <br>
         <h3>💡 Did You Know?</h3>
         <blockquote>
-            PM2.5 particles are 30x smaller than a human hair and can enter your bloodstream.
+            PM2.5 particles are smaller than a human hair and can enter your lungs.
         </blockquote>
     """, unsafe_allow_html=True)
 
-# --- DASHBOARD ---
+# Dashboard Page
 elif page == "Dashboard":
-    st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>Air Quality Dashboard</h1>", unsafe_allow_html=True)
+    st.markdown("## 🌍 Air Quality Dashboard")
+    if not all(col in df.columns for col in ['Country', 'City', 'PM2.5']):
+        st.warning("Dataset lacks essential columns for dashboard: 'Country', 'City', 'PM2.5'.")
+    else:
+        country = st.sidebar.selectbox("Select Country", sorted(df['Country'].dropna().unique()))
+        cities = st.sidebar.multiselect("Select Cities", sorted(df[df['Country'] == country]['City'].dropna().unique()))
+        pollutant = st.sidebar.selectbox("Select Pollutant", [col for col in ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3'] if col in df.columns])
+        filtered_df = df[(df['Country'] == country) & (df['City'].isin(cities))]
 
-    country = st.sidebar.selectbox("Select Country", sorted(df['Country'].unique()))
-    filtered_df = df[df['Country'] == country]
+        st.markdown("### 📍 City Locations (if available)")
+        city_coords = {'Bangkok': (13.75, 100.5), 'Paris': (48.85, 2.35)}
+        map_df = pd.DataFrame({
+            'City': cities,
+            'Lat': [city_coords.get(city, (0, 0))[0] for city in cities],
+            'Lon': [city_coords.get(city, (0, 0))[1] for city in cities],
+            'PM2.5': [filtered_df[filtered_df['City'] == city]['PM2.5'].mean() for city in cities]
+        })
+        fig = px.scatter_mapbox(map_df, lat="Lat", lon="Lon", size="PM2.5", hover_name="City", color="PM2.5",
+                                zoom=3, height=300, color_continuous_scale=px.colors.sequential.Viridis)
+        fig.update_layout(mapbox_style="open-street-map")
+        st.plotly_chart(fig, use_container_width=True)
 
-    cities = st.sidebar.multiselect("Select Cities", sorted(filtered_df['City'].unique()), default=sorted(filtered_df['City'].unique())[:1])
-    pollutant = st.sidebar.selectbox("Select Pollutant", ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3'])
+        st.markdown(f"### 📈 {pollutant} Over Time")
+        fig, ax = plt.subplots(figsize=(10, 4))
+        for city in cities:
+            series = filtered_df[filtered_df['City'] == city].groupby('Date')[pollutant].mean()
+            ax.plot(series.index, series.values, label=city)
+        ax.set_xlabel("Date")
+        ax.set_ylabel(f"{pollutant} (µg/m³)")
+        ax.legend()
+        st.pyplot(fig)
 
-    filtered_df = filtered_df[filtered_df['City'].isin(cities)]
+        st.markdown("### ⚠️ Health Alerts")
+        for city in cities:
+            avg = filtered_df[filtered_df['City'] == city]['PM2.5'].mean()
+            status, msg, css = interpret_pm25(avg)
+            st.markdown(f"<div class='health-alert {css}'><b>{city}: {status}</b> – {msg} (Avg PM2.5: {avg:.1f})</div>", unsafe_allow_html=True)
 
-    st.markdown("### 📍 City Locations")
-    city_coords = {
-        'Bangkok': (13.7563, 100.5018),
-        'Paris': (48.8566, 2.3522),
-    }
-    map_df = pd.DataFrame({
-        'City': cities,
-        'Lat': [city_coords.get(city, (0, 0))[0] for city in cities],
-        'Lon': [city_coords.get(city, (0, 0))[1] for city in cities],
-        'PM2.5': [filtered_df[filtered_df['City'] == city]['PM2.5'].mean() for city in cities]
-    })
-    fig = px.scatter_mapbox(map_df, lat="Lat", lon="Lon", hover_name="City", size="PM2.5", color="PM2.5",
-                            zoom=4, height=300, color_continuous_scale=px.colors.sequential.Viridis)
-    fig.update_layout(mapbox_style="open-street-map")
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown(f"### 📈 {pollutant} Over Time")
-    fig, ax = plt.subplots(figsize=(12, 5))
-    for city in cities:
-        city_data = filtered_df[filtered_df['City'] == city]
-        city_avg = city_data.groupby('Date')[pollutant].mean()
-        ax.plot(city_avg.index, city_avg.values, label=city)
-    ax.set_ylabel(f"{pollutant} (µg/m³)")
-    ax.set_xlabel("Date")
-    ax.legend()
-    ax.grid(True)
-    st.pyplot(fig)
-
-    st.markdown("### ⚠️ Health Alerts")
-    for city in cities:
-        avg_pm25 = filtered_df[filtered_df['City'] == city]['PM2.5'].mean()
-        status, message, css_class = interpret_pm25(avg_pm25)
-        st.markdown(f"""
-            <div class="health-alert {css_class}">
-                <b>{city}: {status}</b> – {message} (Avg PM2.5: {avg_pm25:.1f} µg/m³)
-            </div>
-        """, unsafe_allow_html=True)
-
-    csv = filtered_df.to_csv(index=False).encode("utf-8")
-    st.sidebar.download_button("Download Filtered CSV", data=csv, file_name=f"air_quality_{country}.csv", mime="text/csv")
-
-# --- PREDICTION ---
+# Prediction Page
 elif page == "Prediction":
-    st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>Predict PM2.5 Levels</h1>", unsafe_allow_html=True)
+    st.markdown("## 🔮 Predict PM2.5")
+    required_cols = ['PM10', 'NO2', 'SO2', 'CO', 'O3', 'Temperature', 'Humidity', 'Wind Speed', 'City_Mean_PM25']
+    missing = [col for col in required_cols if col not in df.columns]
+    if missing:
+        st.warning(f"Cannot run predictions: Missing columns: {', '.join(missing)}")
+    else:
+        model_name = st.selectbox("Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
+        default_vals = {col: df[col].mean() for col in required_cols}
+        pm10 = st.slider("PM10", 0.0, 200.0, float(default_vals['PM10']))
+        no2 = st.slider("NO2", 0.0, 100.0, float(default_vals['NO2']))
+        co = st.slider("CO", 0.0, 10.0, float(default_vals['CO']))
+        o3 = st.slider("O3", 0.0, 200.0, float(default_vals['O3']))
+        temp = st.slider("Temperature", -10.0, 40.0, float(default_vals['Temperature']))
+        humidity = st.slider("Humidity", 0.0, 100.0, float(default_vals['Humidity']))
+        wind = st.slider("Wind Speed", 0.0, 20.0, float(default_vals['Wind Speed']))
+        city_avg = st.slider("City Avg PM2.5", 0.0, 150.0, float(default_vals['City_Mean_PM25']))
 
-    model_name = st.selectbox("Choose Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
+        features = {
+            'PM10': pm10, 'NO2': no2, 'SO2': default_vals['SO2'], 'CO': co, 'O3': o3,
+            'Temperature': temp, 'Humidity': humidity, 'Wind Speed': wind,
+            'City_Mean_PM25': city_avg,
+            'PM_Ratio': pm10 / (pm10 * 0.5 + 1e-5),
+            'Humidity_Temp': humidity * temp,
+            'O3_NO2': o3 / (no2 + 1e-5),
+            'Month': 6, 'Day': 15, 'Weekday': 2, 'Is_Weekend': 0,
+            'Lag_PM2.5': city_avg * 0.9,
+            'Rolling_PM2.5': city_avg
+        }
 
-    st.markdown("### Enter Environmental Conditions")
-    col1, col2 = st.columns(2)
-    with col1:
-        pm10 = st.slider("PM10", 0.0, 200.0, float(df['PM10'].mean()))
-        no2 = st.slider("NO2", 0.0, 100.0, float(df['NO2'].mean()))
-        temp = st.slider("Temperature", -10.0, 40.0, float(df['Temperature'].mean()))
-        humidity = st.slider("Humidity", 0.0, 100.0, float(df['Humidity'].mean()))
-    with col2:
-        co = st.slider("CO", 0.0, 10.0, float(df['CO'].mean()))
-        o3 = st.slider("O3", 0.0, 200.0, float(df['O3'].mean()))
-        wind = st.slider("Wind Speed", 0.0, 20.0, float(df['Wind Speed'].mean()))
-        city_avg = st.slider("City Mean PM2.5", 0.0, 150.0, float(df['City_Mean_PM25'].mean()))
+        input_df = pd.DataFrame([features])
+        model_features = input_df.columns.tolist()
 
-    input_data = pd.DataFrame([{...}])  # (For brevity, keep as-is or continue full feature set here)
+        model_map = {
+            "Linear Regression": LinearRegression(),
+            "Random Forest": RandomForestRegressor(n_estimators=100, random_state=42),
+            "Decision Tree": DecisionTreeRegressor(random_state=42),
+            "Neural Network": MLPRegressor(hidden_layer_sizes=(64, 64), max_iter=1000, early_stopping=True, random_state=42)
+        }
 
-    X = df[input_data.columns]
-    y = df['PM2.5']
+        pipeline = Pipeline([("scaler", StandardScaler()), ("model", model_map[model_name])])
+        pipeline.fit(df[model_features], df['PM2.5'])
+        prediction = pipeline.predict(input_df)[0]
+        aqi = calculate_aqi(prediction)
+        status, msg, css = interpret_pm25(prediction)
 
-    # Choose model
-    if model_name == "Linear Regression":
-        model = Pipeline([('scaler', StandardScaler()), ('model', LinearRegression())])
-    elif model_name == "Random Forest":
-        model = Pipeline([('scaler', StandardScaler()), ('model', RandomForestRegressor(n_estimators=100, random_state=42))])
-    elif model_name == "Decision Tree":
-        model = Pipeline([('scaler', StandardScaler()), ('model', DecisionTreeRegressor(random_state=42))])
-    elif model_name == "Neural Network":
-        model = Pipeline([('scaler', StandardScaler()), ('model', MLPRegressor(hidden_layer_sizes=(64, 64), max_iter=1000, early_stopping=True, random_state=42))])
+        st.metric("Predicted PM2.5", f"{prediction:.1f} µg/m³")
+        st.metric("AQI", f"{aqi:.0f}")
+        st.markdown(f"<div class='health-alert {css}'><b>{status}</b> – {msg}</div>", unsafe_allow_html=True)
 
-    model.fit(X, y)
-    pred = model.predict(input_data)[0]
-    aqi = calculate_aqi(pred)
-    status, msg, css_class = interpret_pm25(pred)
-
-    st.metric("Predicted PM2.5", f"{pred:.1f} µg/m³")
-    st.metric("AQI", f"{aqi:.0f}")
-    st.markdown(f"<div class='health-alert {css_class}'><b>Health Impact: {status}</b> – {msg}</div>", unsafe_allow_html=True)
-
-# --- POLICY SIMULATION ---
+# Policy Simulation Page
 elif page == "Policy Simulation":
-    st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>🏩️ Policy Simulation</h1>", unsafe_allow_html=True)
+    st.markdown("## 🏛️ Policy Simulation")
+    for col in ['PM10', 'NO2', 'CO', 'O3']:
+        if col not in df.columns:
+            st.warning(f"Missing required column for simulation: {col}")
+            st.stop()
 
     col1, col2 = st.columns(2)
     with col1:
@@ -234,14 +214,14 @@ elif page == "Policy Simulation":
         co_base = st.number_input("CO", value=float(df['CO'].mean()))
         o3_base = st.number_input("O3", value=float(df['O3'].mean()))
 
-    st.markdown("### ⚙️ Policy Adjustment (%)")
-    pm10_change = st.slider("PM10 Change", -50, 50, 0)
-    no2_change = st.slider("NO2 Change", -50, 50, 0)
-    co_change = st.slider("CO Change", -50, 50, 0)
-    o3_change = st.slider("O3 Change", -50, 50, 0)
+    st.markdown("### Adjustment (%)")
+    pm10_chg = st.slider("PM10 Change", -50, 50, 0)
+    no2_chg = st.slider("NO2 Change", -50, 50, 0)
+    co_chg = st.slider("CO Change", -50, 50, 0)
+    o3_chg = st.slider("O3 Change", -50, 50, 0)
 
-    if st.button("Simulate Policy Impact"):
-        adjustments = {'PM10': -pm10_change, 'NO2': -no2_change, 'CO': -co_change, 'O3': -o3_change}
+    if st.button("Simulate Impact"):
+        adjustments = {'PM10': -pm10_chg, 'NO2': -no2_chg, 'CO': -co_chg, 'O3': -o3_chg}
         base_vals = {'PM10': pm10_base, 'NO2': no2_base, 'CO': co_base, 'O3': o3_base}
         new_vals = simulate_policy_change(base_vals, adjustments)
 
@@ -251,9 +231,9 @@ elif page == "Policy Simulation":
         baseline = model.predict([[pm10_base, no2_base, co_base, o3_base]])[0]
         new_pred = model.predict([[new_vals['PM10'], new_vals['NO2'], new_vals['CO'], new_vals['O3']]])[0]
 
-        st.metric("Baseline PM2.5", f"{baseline:.1f} µg/m³")
-        st.metric("Simulated PM2.5", f"{new_pred:.1f} µg/m³", delta=f"{new_pred - baseline:.1f} µg/m³")
+        st.metric("Baseline PM2.5", f"{baseline:.1f}")
+        st.metric("Simulated PM2.5", f"{new_pred:.1f}", delta=f"{new_pred - baseline:.1f}")
         if new_pred < baseline:
-            st.success(f"✅ Policy reduces PM2.5 by {(baseline - new_pred):.1f} µg/m³")
+            st.success(f"✅ Policy reduces PM2.5 by {(baseline - new_pred):.1f}")
         else:
-            st.warning(f"⚠️ Policy increases PM2.5 by {(new_pred - baseline):.1f} µg/m³")
+            st.warning(f"⚠️ Policy increases PM2.5 by {(new_pred - baseline):.1f}")
