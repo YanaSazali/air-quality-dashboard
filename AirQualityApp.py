@@ -32,17 +32,26 @@ st.markdown("""
 # File uploader
 uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"])
 
-# Load data
 @st.cache_resource
 def load_data(uploaded_file=None):
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
     else:
         df = pd.read_csv("AirQuality_Final_Processed.csv")
-    df['Date'] = pd.to_datetime(df['Date'])
+
+    # Ensure required column 'Date' exists
+    if 'Date' not in df.columns:
+        st.error("❌ The dataset must include a 'Date' column.")
+        st.stop()
+
+    # Parse date
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+
+    # Drop rows with invalid/missing date
+    df = df.dropna(subset=['Date'])
+
     return df
 
-df = load_data(uploaded_file)
 
 # Dataset info
 with st.sidebar.expander("ℹ️ Dataset Info"):
