@@ -35,8 +35,11 @@ def load_data(uploaded_file=None):
     try:
         df = pd.read_csv(uploaded_file) if uploaded_file else pd.read_csv("AirQuality_Final_Processed.csv")
         if 'Date' in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-            df.dropna(subset=['Date'], inplace=True)
+            try:
+                df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+                df.dropna(subset=['Date'], inplace=True)
+            except:
+                df['Date'] = pd.NaT
         else:
             df['Date'] = pd.NaT
     except Exception as e:
@@ -106,140 +109,200 @@ if page == "Home":
 
 elif page == "Dashboard":
     st.markdown("## 🌍 Air Quality Dashboard")
-    if not all(col in df.columns for col in ['Country', 'City']):
-        st.warning("Dataset lacks essential columns: 'Country', 'City'.")
-    else:
-        country = st.sidebar.selectbox("Select Country", sorted(df['Country'].dropna().unique()))
-        cities = st.sidebar.multiselect("Select Cities", sorted(df[df['Country'] == country]['City'].dropna().unique()))
-        pollutant_choices = [col for col in ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3'] if col in df.columns]
-        if not pollutant_choices:
-            st.warning("No pollutant columns available.")
+    
+    available_cols = df.columns.tolist()
+    has_country = 'Country' in available_cols
+    has_city = 'City' in available_cols
+    
+    if has_country and has_city:
+        countries = df['Country'].dropna().unique()
+        country = st.sidebar.selectbox("Select Country", sorted(countries) if len(countries) > 0 else ["No countries available"])
+        
+        if len(countries) > 0:
+            cities = df[df['Country'] == country]['City'].dropna().unique()
+            selected_cities = st.sidebar.multiselect("Select Cities", sorted(cities) if len(cities) > 0 else ["No cities available"])
         else:
-            pollutant = st.sidebar.selectbox("Select Pollutant", pollutant_choices)
-            filtered_df = df[(df['Country'] == country) & (df['City'].isin(cities))]
-
-            st.markdown("### 📍 City Locations (if available)")
+            selected_cities = []
+    else:
+        country = None
+        selected_cities = []
+    
+    pollutant_choices = [col for col in ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3'] if col in available_cols]
+    pollutant = st.sidebar.selectbox("Select Pollutant", pollutant_choices if pollutant_choices else ["No pollutants available"])
+    
+    if has_country and has_city and len(selected_cities) > 0 and pollutant_choices:
+        filtered_df = df[(df['Country'] == country) & (df['City'].isin(selected_cities))]
+        
+        st.markdown("### 📍 City Locations (if coordinates available)")
+        try:
             city_coords = {'Bangkok': (13.75, 100.5), 'Paris': (48.85, 2.35)}
             map_df = pd.DataFrame({
-                'City': cities,
-                'Lat': [city_coords.get(city, (0, 0))[0] for city in cities],
-                'Lon': [city_coords.get(city, (0, 0))[1] for city in cities],
-                pollutant: [filtered_df[filtered_df['City'] == city][pollutant].mean() for city in cities]
+                'City': selected_cities,
+                'Lat': [city_coords.get(city, (0, 0))[0] for city in selected_cities],
+                'Lon': [city_coords.get(city, (0, 0))[1] for city in selected_cities],
+                pollutant: [filtered_df[filtered_df['City'] == city][pollutant].mean() for city in selected_cities]
             })
             fig = px.scatter_mapbox(map_df, lat="Lat", lon="Lon", size=pollutant, hover_name="City", color=pollutant,
-                                    zoom=3, height=300, color_continuous_scale=px.colors.sequential.Viridis)
+                                  zoom=3, height=300, color_continuous_scale=px.colors.sequential.Viridis)
             fig.update_layout(mapbox_style="open-street-map")
             st.plotly_chart(fig, use_container_width=True)
-
-            st.markdown(f"### 📈 {pollutant} Over Time")
-            if pollutant not in filtered_df.columns or filtered_df[pollutant].dropna().empty:
-                st.warning(f"No data for {pollutant}.")
-            else:
-                fig, ax = plt.subplots(figsize=(10, 4))
-                for city in cities:
-                    series = filtered_df[filtered_df['City'] == city].groupby('Date')[pollutant].mean()
-                    ax.plot(series.index, series.values, label=city)
-                ax.set_xlabel("Date")
-                ax.set_ylabel(f"{pollutant} (µg/m³)")
-                ax.legend()
-                st.pyplot(fig)
-
-            if 'PM2.5' in df.columns:
-                st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
-                for city in cities:
+        except:
+            pass
+        
+        st.markdown(f"### 📈 {pollutant} Over Time")
+        try:
+            fig, ax = plt.subplots(figsize=(10, 4))
+            for city in selected_cities:
+                series = filtered_df[filtered_df['City'] == city].groupby('Date')[pollutant].mean()
+                ax.plot(series.index, series.values, label=city)
+            ax.set_xlabel("Date")
+            ax.set_ylabel(f"{pollutant} (µg/m³)")
+            ax.legend()
+            st.pyplot(fig)
+        except:
+            pass
+        
+        if 'PM2.5' in available_cols:
+            st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
+            for city in selected_cities:
+                try:
                     avg = filtered_df[filtered_df['City'] == city]['PM2.5'].mean()
                     status, msg, css = interpret_pm25(avg)
                     st.markdown(f"<div class='health-alert {css}'><b>{city}: {status}</b> – {msg} (Avg PM2.5: {avg:.1f})</div>", unsafe_allow_html=True)
-            else:
-                st.info("Health alerts are disabled because PM2.5 is not available.")
+                except:
+                    pass
 
 elif page == "Prediction":
-    if 'PM2.5' not in df.columns:
-        st.warning("Prediction is unavailable because PM2.5 values are missing from the dataset.")
+    available_cols = df.columns.tolist()
+    if 'PM2.5' not in available_cols:
+        st.info("PM2.5 prediction is not available with the current dataset.")
     else:
         st.markdown("## 🔮 Predict PM2.5")
-        required_cols = ['PM10', 'NO2', 'SO2', 'CO', 'O3', 'Temperature', 'Humidity', 'Wind Speed', 'City_Mean_PM25']
-        missing = [col for col in required_cols if col not in df.columns]
-        if missing:
-            st.warning(f"Cannot run predictions: Missing columns: {', '.join(missing)}")
-        else:
-            model_name = st.selectbox("Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
-            default_vals = {col: df[col].mean() for col in required_cols}
-            pm10 = st.slider("PM10", 0.0, 200.0, float(default_vals['PM10']))
-            no2 = st.slider("NO2", 0.0, 100.0, float(default_vals['NO2']))
-            co = st.slider("CO", 0.0, 10.0, float(default_vals['CO']))
-            o3 = st.slider("O3", 0.0, 200.0, float(default_vals['O3']))
-            temp = st.slider("Temperature", -10.0, 40.0, float(default_vals['Temperature']))
-            humidity = st.slider("Humidity", 0.0, 100.0, float(default_vals['Humidity']))
-            wind = st.slider("Wind Speed", 0.0, 20.0, float(default_vals['Wind Speed']))
-            city_avg = st.slider("City Avg PM2.5", 0.0, 150.0, float(default_vals['City_Mean_PM25']))
-
-            features = {
-                'PM10': pm10, 'NO2': no2, 'SO2': default_vals['SO2'], 'CO': co, 'O3': o3,
-                'Temperature': temp, 'Humidity': humidity, 'Wind Speed': wind,
-                'City_Mean_PM25': city_avg,
-                'PM_Ratio': pm10 / (pm10 * 0.5 + 1e-5),
-                'Humidity_Temp': humidity * temp,
-                'O3_NO2': o3 / (no2 + 1e-5),
-                'Month': 6, 'Day': 15, 'Weekday': 2, 'Is_Weekend': 0,
-                'Lag_PM2.5': city_avg * 0.9,
-                'Rolling_PM2.5': city_avg
-            }
-
-            input_df = pd.DataFrame([features])
-            model_features = input_df.columns.tolist()
-
+        model_name = st.selectbox("Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
+        
+        # Create sliders for available features only
+        slider_values = {}
+        if 'PM10' in available_cols:
+            slider_values['PM10'] = st.slider("PM10", 0.0, 200.0, float(df['PM10'].mean()))
+        if 'NO2' in available_cols:
+            slider_values['NO2'] = st.slider("NO2", 0.0, 100.0, float(df['NO2'].mean()))
+        if 'CO' in available_cols:
+            slider_values['CO'] = st.slider("CO", 0.0, 10.0, float(df['CO'].mean()))
+        if 'O3' in available_cols:
+            slider_values['O3'] = st.slider("O3", 0.0, 200.0, float(df['O3'].mean()))
+        if 'Temperature' in available_cols:
+            slider_values['Temperature'] = st.slider("Temperature", -10.0, 40.0, float(df['Temperature'].mean()))
+        if 'Humidity' in available_cols:
+            slider_values['Humidity'] = st.slider("Humidity", 0.0, 100.0, float(df['Humidity'].mean()))
+        if 'Wind Speed' in available_cols:
+            slider_values['Wind Speed'] = st.slider("Wind Speed", 0.0, 20.0, float(df['Wind Speed'].mean()))
+        if 'City_Mean_PM25' in available_cols:
+            slider_values['City_Mean_PM25'] = st.slider("City Avg PM2.5", 0.0, 150.0, float(df['City_Mean_PM25'].mean()))
+        
+        features = {}
+        for col, val in slider_values.items():
+            features[col] = val
+        
+        # Add derived features if possible
+        if 'PM10' in features:
+            features['PM_Ratio'] = features['PM10'] / (features['PM10'] * 0.5 + 1e-5)
+        if 'Humidity' in features and 'Temperature' in features:
+            features['Humidity_Temp'] = features['Humidity'] * features['Temperature']
+        if 'O3' in features and 'NO2' in features:
+            features['O3_NO2'] = features['O3'] / (features['NO2'] + 1e-5)
+        
+        # Add temporal features
+        features.update({
+            'Month': 6, 'Day': 15, 'Weekday': 2, 'Is_Weekend': 0,
+            'Lag_PM2.5': features.get('City_Mean_PM25', 0) * 0.9,
+            'Rolling_PM2.5': features.get('City_Mean_PM25', 0)
+        })
+        
+        input_df = pd.DataFrame([features])
+        model_features = [col for col in input_df.columns if col in available_cols]
+        
+        if len(model_features) > 0:
             model_map = {
                 "Linear Regression": LinearRegression(),
                 "Random Forest": RandomForestRegressor(n_estimators=100, random_state=42),
                 "Decision Tree": DecisionTreeRegressor(random_state=42),
                 "Neural Network": MLPRegressor(hidden_layer_sizes=(64, 64), max_iter=1000, early_stopping=True, random_state=42)
             }
-
-            pipeline = Pipeline([("scaler", StandardScaler()), ("model", model_map[model_name])])
-            pipeline.fit(df[model_features], df['PM2.5'])
-            prediction = pipeline.predict(input_df)[0]
-            aqi = calculate_aqi(prediction)
-            status, msg, css = interpret_pm25(prediction)
-
-            st.metric("Predicted PM2.5", f"{prediction:.1f} µg/m³")
-            st.metric("AQI", f"{aqi:.0f}")
-            st.markdown(f"<div class='health-alert {css}'><b>{status}</b> – {msg}</div>", unsafe_allow_html=True)
+            
+            try:
+                pipeline = Pipeline([("scaler", StandardScaler()), ("model", model_map[model_name])])
+                pipeline.fit(df[model_features], df['PM2.5'])
+                prediction = pipeline.predict(input_df[model_features])[0]
+                aqi = calculate_aqi(prediction)
+                status, msg, css = interpret_pm25(prediction)
+                
+                st.metric("Predicted PM2.5", f"{prediction:.1f} µg/m³")
+                st.metric("AQI", f"{aqi:.0f}")
+                st.markdown(f"<div class='health-alert {css}'><b>{status}</b> – {msg}</div>", unsafe_allow_html=True)
+            except Exception as e:
+                st.info("Prediction couldn't be completed with the available data.")
+        else:
+            st.info("Not enough features available for prediction.")
 
 elif page == "Policy Simulation":
     st.markdown("## 🏫 Policy Simulation")
-    sim_cols = ['PM10', 'NO2', 'CO', 'O3']
-    if not all(col in df.columns for col in sim_cols):
-        st.warning(f"Missing required columns for simulation: {', '.join([c for c in sim_cols if c not in df.columns])}")
+    available_cols = df.columns.tolist()
+    sim_cols = [col for col in ['PM10', 'NO2', 'CO', 'O3'] if col in available_cols]
+    
+    if len(sim_cols) == 0:
+        st.info("Policy simulation is not available with the current dataset.")
     else:
         col1, col2 = st.columns(2)
         with col1:
-            pm10_base = st.number_input("PM10", value=float(df['PM10'].mean()))
-            no2_base = st.number_input("NO2", value=float(df['NO2'].mean()))
+            if 'PM10' in sim_cols:
+                pm10_base = st.number_input("PM10", value=float(df['PM10'].mean()))
+            if 'NO2' in sim_cols:
+                no2_base = st.number_input("NO2", value=float(df['NO2'].mean()))
         with col2:
-            co_base = st.number_input("CO", value=float(df['CO'].mean()))
-            o3_base = st.number_input("O3", value=float(df['O3'].mean()))
-
+            if 'CO' in sim_cols:
+                co_base = st.number_input("CO", value=float(df['CO'].mean()))
+            if 'O3' in sim_cols:
+                o3_base = st.number_input("O3", value=float(df['O3'].mean()))
+        
         st.markdown("### Adjustment (%)")
-        pm10_chg = st.slider("PM10 Change", -50, 50, 0)
-        no2_chg = st.slider("NO2 Change", -50, 50, 0)
-        co_chg = st.slider("CO Change", -50, 50, 0)
-        o3_chg = st.slider("O3 Change", -50, 50, 0)
-
+        adjustments = {}
+        if 'PM10' in sim_cols:
+            adjustments['PM10'] = st.slider("PM10 Change", -50, 50, 0)
+        if 'NO2' in sim_cols:
+            adjustments['NO2'] = st.slider("NO2 Change", -50, 50, 0)
+        if 'CO' in sim_cols:
+            adjustments['CO'] = st.slider("CO Change", -50, 50, 0)
+        if 'O3' in sim_cols:
+            adjustments['O3'] = st.slider("O3 Change", -50, 50, 0)
+        
         if st.button("Simulate Impact"):
-            adjustments = {'PM10': -pm10_chg, 'NO2': -no2_chg, 'CO': -co_chg, 'O3': -o3_chg}
-            base_vals = {'PM10': pm10_base, 'NO2': no2_base, 'CO': co_base, 'O3': o3_base}
+            base_vals = {}
+            if 'PM10' in sim_cols:
+                base_vals['PM10'] = pm10_base
+            if 'NO2' in sim_cols:
+                base_vals['NO2'] = no2_base
+            if 'CO' in sim_cols:
+                base_vals['CO'] = co_base
+            if 'O3' in sim_cols:
+                base_vals['O3'] = o3_base
+            
             new_vals = simulate_policy_change(base_vals, adjustments)
-
-            model = RandomForestRegressor(random_state=42)
-            model.fit(df[sim_cols], df['PM2.5'])
-
-            baseline = model.predict([[pm10_base, no2_base, co_base, o3_base]])[0]
-            new_pred = model.predict([[new_vals['PM10'], new_vals['NO2'], new_vals['CO'], new_vals['O3']]])[0]
-
-            st.metric("Baseline PM2.5", f"{baseline:.1f}")
-            st.metric("Simulated PM2.5", f"{new_pred:.1f}", delta=f"{new_pred - baseline:.1f}")
-            if new_pred < baseline:
-                st.success(f"✅ Policy reduces PM2.5 by {(baseline - new_pred):.1f}")
-            else:
-                st.warning(f"⚠️ Policy increases PM2.5 by {(new_pred - baseline):.1f}")
+            
+            try:
+                model = RandomForestRegressor(random_state=42)
+                model.fit(df[sim_cols], df['PM2.5'])
+                
+                baseline_input = [base_vals.get(col, 0) for col in sim_cols]
+                new_input = [new_vals.get(col, 0) for col in sim_cols]
+                
+                baseline = model.predict([baseline_input])[0]
+                new_pred = model.predict([new_input])[0]
+                
+                st.metric("Baseline PM2.5", f"{baseline:.1f}")
+                st.metric("Simulated PM2.5", f"{new_pred:.1f}", delta=f"{new_pred - baseline:.1f}")
+                if new_pred < baseline:
+                    st.success(f"✅ Policy reduces PM2.5 by {(baseline - new_pred):.1f}")
+                else:
+                    st.warning(f"⚠️ Policy increases PM2.5 by {(new_pred - baseline):.1f}")
+            except:
+                st.info("Simulation couldn't be completed with the available data.")
