@@ -24,6 +24,19 @@ st.markdown("""
     .unhealthy-sensitive { background-color: #FF9800; color: white; }
     .unhealthy { background-color: #F44336; color: white; }
     .very-unhealthy { background-color: #9C27B0; color: white; }
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(0,0,0,.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 10px;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -33,25 +46,60 @@ uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"]
 @st.cache_resource
 def load_data(uploaded_file=None):
     try:
+        # Show loading status
+        if uploaded_file:
+            loading_placeholder = st.empty()
+            loading_placeholder.markdown("""
+                <div style="display: flex; align-items: center;">
+                    <div class="loading-spinner"></div>
+                    <span>Loading dataset...</span>
+                </div>
+            """, unsafe_allow_html=True)
+        
         df = pd.read_csv(uploaded_file) if uploaded_file else pd.read_csv("AirQuality_Final_Processed.csv")
-        if 'Date' in df.columns:
-            try:
-                df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-                df.dropna(subset=['Date'], inplace=True)
-            except:
-                df['Date'] = pd.NaT
+        
+        # Handle date conversion gracefully
+        date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        if date_cols:
+            df['Date'] = pd.to_datetime(df[date_cols[0]], errors='coerce')
+            df.dropna(subset=['Date'], inplace=True)
         else:
             df['Date'] = pd.NaT
+            
+        # Clear loading status after processing
+        if uploaded_file:
+            loading_placeholder.empty()
+            
+        return df
     except Exception as e:
+        if uploaded_file:
+            loading_placeholder.empty()
         st.error(f"Error loading data: {e}")
         st.stop()
-    return df
+
+# Show initial loading state
+if uploaded_file and 'df' not in st.session_state:
+    st.markdown("""
+        <div style="display: flex; align-items: center; margin-bottom: 20px;">
+            <div class="loading-spinner"></div>
+            <span>Processing uploaded dataset...</span>
+        </div>
+    """, unsafe_allow_html=True)
+    st.session_state.df_loading = True
 
 df = load_data(uploaded_file)
+
+# Clear loading state after data is loaded
+if 'df_loading' in st.session_state:
+    st.session_state.df = df
+    del st.session_state.df_loading
+    st.rerun()
 
 with st.sidebar.expander("ℹ️ Dataset Info"):
     st.success("✅ Uploaded dataset used." if uploaded_file else "📁 Default dataset used.")
     st.write(f"Records: {df.shape[0]} | Columns: {df.shape[1]}")
+    if st.checkbox("Show column names"):
+        st.write(df.columns.tolist())
 
 def calculate_aqi(pm25):
     try:
