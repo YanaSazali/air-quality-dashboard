@@ -142,18 +142,29 @@ if page == "Home":
         <h4 style='text-align: center; color: gray;'>Track, analyze, and predict air quality for healthier communities</h4>
         <br>
         <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px;">
-            <h3>📌 Key Features:</h3>
+            <h3>Key Features:</h3>
             <ul>
-                <li><b>🌐 Dashboard:</b> Visualize air quality trends</li>
-                <li><b>🔮 Prediction:</b> Estimate PM2.5 using ML models</li>
-                <li><b>📜 Policy Simulation:</b> Assess pollution reduction impact</li>
+                <li><b>Dashboard:</b> Visualize air quality trends</li>
+                <li><b>Prediction:</b> Estimate PM2.5 using ML models</li>
+                <li><b>Policy Simulation:</b> Assess pollution reduction impact</li>
             </ul>
         </div>
         <h3>💡 Did You Know?</h3>
         <blockquote>
             PM2.5 particles are smaller than a human hair and can enter your lungs.
         </blockquote>
+        <h3>Understanding Pollutants</h3>
+        <ul>
+            <li><b>PM2.5:</b> Fine particulate matter (≤2.5 micrometers) that can penetrate deep into the lungs and even enter the bloodstream.</li>
+            <li><b>PM10:</b> Coarse particulate matter (≤10 micrometers) that can cause respiratory irritation.</li>
+            <li><b>NO₂ (Nitrogen Dioxide):</b> Emitted from vehicles and industrial activity; contributes to smog and lung irritation.</li>
+            <li><b>SO₂ (Sulfur Dioxide):</b> Produced by burning fossil fuels; can cause respiratory issues and form acid rain.</li>
+            <li><b>CO (Carbon Monoxide):</b> A colorless, odorless gas from incomplete combustion; dangerous at high levels.</li>
+            <li><b>O₃ (Ozone):</b> Ground-level ozone is formed by chemical reactions in sunlight and can trigger breathing problems.</li>
+        </ul>
+        <p>Tracking these pollutants helps assess air quality and identify health risks in your area.</p>
     """, unsafe_allow_html=True)
+
 
 elif page == "Dashboard":
     st.markdown("## 🌍 Air Quality Dashboard")
@@ -225,7 +236,7 @@ elif page == "Prediction":
     if 'PM2.5' not in available_cols:
         st.info("PM2.5 prediction is not available with the current dataset.")
     else:
-        st.markdown("## 🔮 Predict PM2.5")
+        st.markdown("## Predict PM2.5")
         model_name = st.selectbox("Model", ["Linear Regression", "Random Forest", "Decision Tree", "Neural Network"])
         
         # Create sliders for available features only
@@ -293,7 +304,7 @@ elif page == "Prediction":
             st.info("Not enough features available for prediction.")
 
 elif page == "Policy Simulation":
-    st.markdown("## 🏫 Policy Simulation")
+    st.markdown("## Policy Simulation")
     available_cols = df.columns.tolist()
     sim_cols = [col for col in ['PM10', 'NO2', 'CO', 'O3'] if col in available_cols]
     
