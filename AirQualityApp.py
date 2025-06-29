@@ -233,8 +233,7 @@ if valid_plot_data:
 else:
     st.warning("⛔ Time series plot not available: Missing or invalid 'Date' or pollutant values.")
 
-
-        if 'PM2.5' in available_cols:
+       if 'PM2.5' in available_cols:
             st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
             for city in selected_cities:
                 try:
