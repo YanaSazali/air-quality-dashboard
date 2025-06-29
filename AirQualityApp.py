@@ -208,43 +208,44 @@ elif page == "Dashboard":
         except:
             pass
 
-st.markdown(f"### 📈 {pollutant} Over Time")
+    st.markdown(f"### 📈 {pollutant} Over Time")
 
-# Check for valid date and pollutant data
-valid_plot_data = False
-for city in selected_cities:
-    city_data = filtered_df[filtered_df['City'] == city]
-    if not city_data.empty and 'Date' in city_data.columns and city_data['Date'].notna().any() and city_data[pollutant].notna().any():
-        valid_plot_data = True
-        break
-
-if valid_plot_data:
-    fig, ax = plt.subplots(figsize=(10, 4))
+    # Check for valid date and pollutant data
+    valid_plot_data = False
     for city in selected_cities:
-        city_data = filtered_df[filtered_df['City'] == city].copy()
-        city_data = city_data.dropna(subset=['Date', pollutant])
-        if not city_data.empty:
-            series = city_data.groupby('Date')[pollutant].mean()
-            ax.plot(series.index, series.values, label=city)
-    ax.set_xlabel("Date")
-    ax.set_ylabel(f"{pollutant} (µg/m³)")
-    ax.legend()
-    st.pyplot(fig)
-else:
-    st.warning("⛔ Time series plot not available: Missing or invalid 'Date' or pollutant values.")
+        city_data = filtered_df[filtered_df['City'] == city]
+        if not city_data.empty and 'Date' in city_data.columns and city_data['Date'].notna().any() and city_data[pollutant].notna().any():
+            valid_plot_data = True
+            break
 
-        if 'PM2.5' in available_cols:
-            st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
-            for city in selected_cities:
-                try:
-                    avg = filtered_df[filtered_df['City'] == city]['PM2.5'].mean()
-                    status, msg, css = interpret_pm25(avg)
-                    st.markdown(
-                        f"<div class='health-alert {css}'><b>{city}: {status}</b> – {msg} (Avg PM2.5: {avg:.1f})</div>",
-                        unsafe_allow_html=True
-                    )
-                except:
-                    pass 
+    if valid_plot_data:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        for city in selected_cities:
+            city_data = filtered_df[filtered_df['City'] == city].copy()
+            city_data = city_data.dropna(subset=['Date', pollutant])
+            if not city_data.empty:
+                series = city_data.groupby('Date')[pollutant].mean()
+                ax.plot(series.index, series.values, label=city)
+        ax.set_xlabel("Date")
+        ax.set_ylabel(f"{pollutant} (µg/m³)")
+        ax.legend()
+        st.pyplot(fig)
+    else:
+        st.warning("⛔ Time series plot not available: Missing or invalid 'Date' or pollutant values.")
+
+    if 'PM2.5' in available_cols:
+        st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
+        for city in selected_cities:
+            try:
+                avg = filtered_df[filtered_df['City'] == city]['PM2.5'].mean()
+                status, msg, css = interpret_pm25(avg)
+                st.markdown(
+                    f"<div class='health-alert {css}'><b>{city}: {status}</b> – {msg} (Avg PM2.5: {avg:.1f})</div>",
+                    unsafe_allow_html=True
+                )
+            except:
+                pass
+
 
         st.markdown("### 🧾 Pollutant Data Table")
         display_columns = ['Date', 'City', 'Country'] + pollutant_choices
