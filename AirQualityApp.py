@@ -231,9 +231,9 @@ except Exception as e:
     st.error(f"Error generating time series plot: {e}")
 
        
-        if 'PM2.5' in available_cols:
-            st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
-            for city in selected_cities:
+    st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
+    if 'PM2.5' in available_cols:  
+        for city in selected_cities:
                 try:
                     avg = filtered_df[filtered_df['City'] == city]['PM2.5'].mean()
                     status, msg, css = interpret_pm25(avg)
