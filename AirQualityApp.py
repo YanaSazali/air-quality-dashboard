@@ -168,14 +168,6 @@ if page == "Home":
 
 elif page == "Dashboard":
     st.markdown("## 🌍 Air Quality Dashboard")
-
-            # Display pollutant data table
-        st.markdown("### 🧾 Pollutant Data Table")
-        display_columns = ['Date', 'City', 'Country'] + pollutant_choices
-        if all(col in filtered_df.columns for col in display_columns):
-            st.dataframe(filtered_df[display_columns].sort_values("Date", ascending=False).reset_index(drop=True))
-        else:
-            st.warning("Some pollutant columns are missing from the dataset.")
     
     available_cols = df.columns.tolist()
     has_country = 'Country' in available_cols
@@ -228,6 +220,16 @@ elif page == "Dashboard":
             st.pyplot(fig)
         except:
             pass
+
+                # Display pollutant data table
+        st.markdown("### 🧾 Pollutant Data Table")
+        display_columns = ['Date', 'City', 'Country'] + pollutant_choices
+        available_table_cols = [col for col in display_columns if col in filtered_df.columns]
+        if available_table_cols:
+            st.dataframe(filtered_df[available_table_cols].sort_values("Date", ascending=False).reset_index(drop=True))
+        else:
+            st.warning("Some pollutant columns are missing from the dataset.")
+
         
         if 'PM2.5' in available_cols:
             st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
