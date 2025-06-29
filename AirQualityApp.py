@@ -234,7 +234,7 @@ else:
     st.warning("⛔ Time series plot not available: Missing or invalid 'Date' or pollutant values.")
 
 
-        st.markdown("### 🧾pollutant Data Table")
+    st.markdown("### 🧾pollutant Data Table")
         display_columns = ['Date', 'City', 'Country'] + pollutant_choices
         available_table_cols = [col for col in display_columns if col in filtered_df.columns]
         if available_table_cols:
