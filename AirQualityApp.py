@@ -233,24 +233,26 @@ if valid_plot_data:
 else:
     st.warning("⛔ Time series plot not available: Missing or invalid 'Date' or pollutant values.")
 
-       if 'PM2.5' in available_cols:
+        if 'PM2.5' in available_cols:
             st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
             for city in selected_cities:
                 try:
                     avg = filtered_df[filtered_df['City'] == city]['PM2.5'].mean()
                     status, msg, css = interpret_pm25(avg)
-                    st.markdown(f"<div class='health-alert {css}'><b>{city}: {status}</b> – {msg} (Avg PM2.5: {avg:.1f})</div>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div class='health-alert {css}'><b>{city}: {status}</b> – {msg} (Avg PM2.5: {avg:.1f})</div>",
+                        unsafe_allow_html=True
+                    )
                 except:
-                    pass
+                    pass 
 
-        st.markdown("### 🧾pollutant Data Table")
+        st.markdown("### 🧾 Pollutant Data Table")
         display_columns = ['Date', 'City', 'Country'] + pollutant_choices
         available_table_cols = [col for col in display_columns if col in filtered_df.columns]
         if available_table_cols:
             st.dataframe(filtered_df[available_table_cols].sort_values("Date", ascending=False).reset_index(drop=True))
         else:
             st.warning("Some pollutant columns are missing from the dataset.")
-
 
 elif page == "Prediction":
     available_cols = df.columns.tolist()
