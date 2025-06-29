@@ -254,6 +254,8 @@ elif page == "Dashboard":
             st.dataframe(filtered_df[available_table_cols].sort_values("Date", ascending=False).reset_index(drop=True))
         else:
             st.warning("Some pollutant columns are missing from the dataset.")
+    else:
+        st.warning("Please select a valid country, city, and pollutant to view the dashboard.")
 
 elif page == "Prediction":
     available_cols = df.columns.tolist()
