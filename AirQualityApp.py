@@ -10,6 +10,7 @@ from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
+import re
 
 st.set_page_config(page_title="Air Quality Dashboard", layout="wide", initial_sidebar_state="expanded")
 
@@ -62,72 +63,64 @@ default_df = load_default_data()
 # File uploader in sidebar
 uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"])
 
+# Function to standardize column names
+def standardize_columns(df):
+    new_columns = {}
+    for col in df.columns:
+        lower_col = col.lower()
+        # Standardize pollutant names
+        if re.search(r'pm2\.?5', lower_col):
+            new_columns[col] = 'PM2.5'
+        elif re.search(r'pm10', lower_col):
+            new_columns[col] = 'PM10'
+        elif re.search(r'no2', lower_col):
+            new_columns[col] = 'NO2'
+        elif re.search(r'so2', lower_col):
+            new_columns[col] = 'SO2'
+        elif re.search(r'^co\b', lower_col) or re.search(r'carbon.?monoxide', lower_col):
+            new_columns[col] = 'CO'
+        elif re.search(r'o3', lower_col) or re.search(r'ozone', lower_col):
+            new_columns[col] = 'O3'
+        elif re.search(r'temp', lower_col):
+            new_columns[col] = 'Temperature'
+        elif re.search(r'humidity', lower_col):
+            new_columns[col] = 'Humidity'
+        elif re.search(r'wind', lower_col):
+            new_columns[col] = 'Wind Speed'
+        elif re.search(r'country', lower_col):
+            new_columns[col] = 'Country'
+        elif re.search(r'city', lower_col):
+            new_columns[col] = 'City'
+        elif re.search(r'date', lower_col) or re.search(r'time', lower_col):
+            new_columns[col] = 'Date'
+        else:
+            new_columns[col] = col
+    return df.rename(columns=new_columns)
+
 # Function to load uploaded data
 @st.cache_resource
 def load_uploaded_data(uploaded_file):
     try:
         df = pd.read_csv(uploaded_file)
+        df = standardize_columns(df)
         # Handle date conversion
-        date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
-        if date_cols:
-            df['Date'] = pd.to_datetime(df[date_cols[0]], errors='coerce')
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
             df.dropna(subset=['Date'], inplace=True)
-        else:
-            df['Date'] = pd.NaT
         return df
     except Exception as e:
         st.error(f"Error loading uploaded data: {e}")
         return pd.DataFrame()
 
-# Show uploaded data preview
-if uploaded_file is not None:
-    uploaded_df = load_uploaded_data(uploaded_file)
-    with st.sidebar.expander("📊 Uploaded Data Preview"):
-        st.write(f"Shape: {uploaded_df.shape[0]} rows, {uploaded_df.shape[1]} columns")
-        st.dataframe(uploaded_df.head(3))
-    
-    # Use uploaded_df for dashboard, default_df for other pages
-    current_df = uploaded_df if 'page' in st.session_state and st.session_state.page == "Dashboard" else default_df
-else:
-    current_df = default_df
-
-# Rest of your functions (calculate_aqi, interpret_pm25, simulate_policy_change) remain the same
-def calculate_aqi(pm25):
-    try:
-        if pm25 <= 12.0:
-            return ((50-0)/(12.0-0)) * (pm25-0) + 0
-        elif pm25 <= 35.4:
-            return ((100-51)/(35.4-12.1)) * (pm25-12.1) + 51
-        elif pm25 <= 55.4:
-            return ((150-101)/(55.4-35.5)) * (pm25-35.5) + 101
-        elif pm25 <= 150.4:
-            return ((200-151)/(150.4-55.5)) * (pm25-55.5) + 151
-        else:
-            return ((300-201)/(250.4-150.5)) * (pm25-150.5) + 201
-    except:
-        return np.nan
-
-def interpret_pm25(value):
-    if value <= 12:
-        return ("🟢 Good", "Air quality is satisfactory.", "good")
-    elif value <= 35.4:
-        return ("🟡 Moderate", "Acceptable for most, but sensitive groups may be affected.", "moderate")
-    elif value <= 55.4:
-        return ("🟠 Unhealthy for Sensitive Groups", "Sensitive individuals should reduce prolonged exertion.", "unhealthy-sensitive")
-    elif value <= 150.4:
-        return ("🔴 Unhealthy", "Everyone may experience health effects.", "unhealthy")
-    else:
-        return ("⚫ Very Unhealthy", "Health warnings for everyone.", "very-unhealthy")
-
-def simulate_policy_change(base_values, adjustments):
-    adjusted = base_values.copy()
-    for k, v in adjustments.items():
-        adjusted[k] = adjusted.get(k, 0) * (1 + v / 100)
-    return adjusted
+# Show default dataset info in sidebar
+with st.sidebar.expander("ℹ️ Default Dataset Info"):
+    st.success("✅ Uploaded dataset used." if uploaded_file else "📁 Default dataset used.")
+    st.write(f"Records: {default_df.shape[0]} | Columns: {default_df.shape[1]}")
+    if st.checkbox("Show column names"):
+        st.write(default_df.columns.tolist())
 
 # Page navigation
 page = st.sidebar.selectbox("Select Page", ["Home", "Dashboard", "Prediction", "Policy Simulation"])
-st.session_state.page = page  # Store current page for data selection
 
 if page == "Home":
     st.markdown("""
@@ -142,31 +135,27 @@ if page == "Home":
                 <li><b>Policy Simulation:</b> Assess pollution reduction impact</li>
             </ul>
         </div>
-        <h3>💡 Did You Know?</h3>
-        <blockquote>
-            PM2.5 particles are smaller than a human hair and can enter your lungs.
-        </blockquote>
-        <h3>Understanding Pollutants</h3>
-        <ul>
-            <li><b>PM2.5:</b> Fine particulate matter (≤2.5 micrometers) that can penetrate deep into the lungs and even enter the bloodstream.</li>
-            <li><b>PM10:</b> Coarse particulate matter (≤10 micrometers) that can cause respiratory irritation.</li>
-            <li><b>NO₂ (Nitrogen Dioxide):</b> Emitted from vehicles and industrial activity; contributes to smog and lung irritation.</li>
-            <li><b>SO₂ (Sulfur Dioxide):</b> Produced by burning fossil fuels; can cause respiratory issues and form acid rain.</li>
-            <li><b>CO (Carbon Monoxide):</b> A colorless, odorless gas from incomplete combustion; dangerous at high levels.</li>
-            <li><b>O₃ (Ozone):</b> Ground-level ozone is formed by chemical reactions in sunlight and can trigger breathing problems.</li>
-        </ul>
-        <p>Tracking these pollutants helps assess air quality and identify health risks in your area.</p>
     """, unsafe_allow_html=True)
 
 elif page == "Dashboard":
     # Use uploaded_df if available, otherwise default_df
-    df = uploaded_df if uploaded_file is not None else default_df
+    df = load_uploaded_data(uploaded_file) if uploaded_file is not None else default_df
+    
+    # Show uploaded dataset preview on main page
+    if uploaded_file is not None:
+        with st.expander("📊 Uploaded Dataset Preview", expanded=True):
+            st.write(f"Shape: {df.shape[0]} rows, {df.shape[1]} columns")
+            st.dataframe(df.head())
     
     st.markdown("## 🌍 Air Quality Dashboard")
     
     available_cols = df.columns.tolist()
     has_country = 'Country' in available_cols
     has_city = 'City' in available_cols
+    
+    # Standard pollutant columns we'll look for
+    pollutant_options = ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3']
+    available_pollutants = [col for col in pollutant_options if col in available_cols]
     
     if has_country and has_city:
         countries = df['Country'].dropna().unique()
@@ -181,40 +170,51 @@ elif page == "Dashboard":
         country = None
         selected_cities = []
     
-    pollutant_choices = [col for col in ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3'] if col in available_cols]
-    pollutant = st.sidebar.selectbox("Select Pollutant", pollutant_choices if pollutant_choices else ["No pollutants available"])
+    pollutant = st.sidebar.selectbox("Select Pollutant", available_pollutants if available_pollutants else ["No pollutants available"])
     
-    if has_country and has_city and len(selected_cities) > 0 and pollutant_choices:
+    if (not has_country or not has_city or len(selected_cities) == 0 or not available_pollutants):
+        st.info("Please select a country and city with available pollutant data")
+    else:
         filtered_df = df[(df['Country'] == country) & (df['City'].isin(selected_cities))]
         
         st.markdown("### 📍 City Locations (if coordinates available)")
         try:
-            city_coords = {'Bangkok': (13.75, 100.5), 'Paris': (48.85, 2.35)}
+            # Create mock coordinates if none exist
+            unique_cities = filtered_df['City'].unique()
+            city_coords = {}
+            for i, city in enumerate(unique_cities):
+                city_coords[city] = (40 + i*5, -100 + i*10)  # Mock coordinates
+            
             map_df = pd.DataFrame({
                 'City': selected_cities,
                 'Lat': [city_coords.get(city, (0, 0))[0] for city in selected_cities],
                 'Lon': [city_coords.get(city, (0, 0))[1] for city in selected_cities],
                 pollutant: [filtered_df[filtered_df['City'] == city][pollutant].mean() for city in selected_cities]
             })
-            fig = px.scatter_mapbox(map_df, lat="Lat", lon="Lon", size=pollutant, hover_name="City", color=pollutant,
-                                  zoom=3, height=300, color_continuous_scale=px.colors.sequential.Viridis)
+            
+            fig = px.scatter_mapbox(map_df, lat="Lat", lon="Lon", size=pollutant, 
+                                  hover_name="City", color=pollutant,
+                                  zoom=3, height=300, 
+                                  color_continuous_scale=px.colors.sequential.Viridis)
             fig.update_layout(mapbox_style="open-street-map")
             st.plotly_chart(fig, use_container_width=True)
-        except:
-            pass
+        except Exception as e:
+            st.warning(f"Could not display map: {str(e)}")
         
         st.markdown(f"### 📈 {pollutant} Over Time")
         try:
             fig, ax = plt.subplots(figsize=(10, 4))
             for city in selected_cities:
-                series = filtered_df[filtered_df['City'] == city].groupby('Date')[pollutant].mean()
-                ax.plot(series.index, series.values, label=city)
+                city_data = filtered_df[filtered_df['City'] == city]
+                if 'Date' in city_data.columns:
+                    series = city_data.groupby('Date')[pollutant].mean()
+                    ax.plot(series.index, series.values, label=city)
             ax.set_xlabel("Date")
             ax.set_ylabel(f"{pollutant} (µg/m³)")
             ax.legend()
             st.pyplot(fig)
-        except:
-            pass
+        except Exception as e:
+            st.warning(f"Could not create time series plot: {str(e)}")
         
         if 'PM2.5' in available_cols:
             st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
