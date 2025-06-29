@@ -40,67 +40,58 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# File uploader
-uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"])
-
+# Load default dataset
 @st.cache_resource
-def load_data(uploaded_file=None):
+def load_default_data():
     try:
-        # Show loading status
-        if uploaded_file:
-            loading_placeholder = st.empty()
-            loading_placeholder.markdown("""
-                <div style="display: flex; align-items: center;">
-                    <div class="loading-spinner"></div>
-                    <span>Loading dataset...</span>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        df = pd.read_csv(uploaded_file) if uploaded_file else pd.read_csv("AirQuality_Final_Processed.csv")
-        
-        # Handle date conversion gracefully
+        df = pd.read_csv("AirQuality_Final_Processed.csv")
+        # Handle date conversion
         date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
         if date_cols:
             df['Date'] = pd.to_datetime(df[date_cols[0]], errors='coerce')
             df.dropna(subset=['Date'], inplace=True)
         else:
             df['Date'] = pd.NaT
-            
-        # Clear loading status after processing
-        if uploaded_file:
-            loading_placeholder.empty()
-            
         return df
     except Exception as e:
-        if uploaded_file:
-            loading_placeholder.empty()
-        st.error(f"Error loading data: {e}")
-        st.stop()
+        st.error(f"Error loading default data: {e}")
+        return pd.DataFrame()
 
-# Show initial loading state
-if uploaded_file and 'df' not in st.session_state:
-    st.markdown("""
-        <div style="display: flex; align-items: center; margin-bottom: 20px;">
-            <div class="loading-spinner"></div>
-            <span>Processing uploaded dataset...</span>
-        </div>
-    """, unsafe_allow_html=True)
-    st.session_state.df_loading = True
+default_df = load_default_data()
 
-df = load_data(uploaded_file)
+# File uploader in sidebar
+uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"])
 
-# Clear loading state after data is loaded
-if 'df_loading' in st.session_state:
-    st.session_state.df = df
-    del st.session_state.df_loading
-    st.rerun()
+# Function to load uploaded data
+@st.cache_resource
+def load_uploaded_data(uploaded_file):
+    try:
+        df = pd.read_csv(uploaded_file)
+        # Handle date conversion
+        date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        if date_cols:
+            df['Date'] = pd.to_datetime(df[date_cols[0]], errors='coerce')
+            df.dropna(subset=['Date'], inplace=True)
+        else:
+            df['Date'] = pd.NaT
+        return df
+    except Exception as e:
+        st.error(f"Error loading uploaded data: {e}")
+        return pd.DataFrame()
 
-with st.sidebar.expander("ℹ️ Dataset Info"):
-    st.success("✅ Uploaded dataset used." if uploaded_file else "📁 Default dataset used.")
-    st.write(f"Records: {df.shape[0]} | Columns: {df.shape[1]}")
-    if st.checkbox("Show column names"):
-        st.write(df.columns.tolist())
+# Show uploaded data preview
+if uploaded_file is not None:
+    uploaded_df = load_uploaded_data(uploaded_file)
+    with st.sidebar.expander("📊 Uploaded Data Preview"):
+        st.write(f"Shape: {uploaded_df.shape[0]} rows, {uploaded_df.shape[1]} columns")
+        st.dataframe(uploaded_df.head(3))
+    
+    # Use uploaded_df for dashboard, default_df for other pages
+    current_df = uploaded_df if 'page' in st.session_state and st.session_state.page == "Dashboard" else default_df
+else:
+    current_df = default_df
 
+# Rest of your functions (calculate_aqi, interpret_pm25, simulate_policy_change) remain the same
 def calculate_aqi(pm25):
     try:
         if pm25 <= 12.0:
@@ -134,7 +125,9 @@ def simulate_policy_change(base_values, adjustments):
         adjusted[k] = adjusted.get(k, 0) * (1 + v / 100)
     return adjusted
 
+# Page navigation
 page = st.sidebar.selectbox("Select Page", ["Home", "Dashboard", "Prediction", "Policy Simulation"])
+st.session_state.page = page  # Store current page for data selection
 
 if page == "Home":
     st.markdown("""
@@ -165,8 +158,10 @@ if page == "Home":
         <p>Tracking these pollutants helps assess air quality and identify health risks in your area.</p>
     """, unsafe_allow_html=True)
 
-
 elif page == "Dashboard":
+    # Use uploaded_df if available, otherwise default_df
+    df = uploaded_df if uploaded_file is not None else default_df
+    
     st.markdown("## 🌍 Air Quality Dashboard")
     
     available_cols = df.columns.tolist()
@@ -232,7 +227,10 @@ elif page == "Dashboard":
                     pass
 
 elif page == "Prediction":
+    # Always use default_df for prediction
+    df = default_df
     available_cols = df.columns.tolist()
+    
     if 'PM2.5' not in available_cols:
         st.info("PM2.5 prediction is not available with the current dataset.")
     else:
@@ -304,6 +302,8 @@ elif page == "Prediction":
             st.info("Not enough features available for prediction.")
 
 elif page == "Policy Simulation":
+    # Always use default_df for policy simulation
+    df = default_df
     st.markdown("## Policy Simulation")
     available_cols = df.columns.tolist()
     sim_cols = [col for col in ['PM10', 'NO2', 'CO', 'O3'] if col in available_cols]
