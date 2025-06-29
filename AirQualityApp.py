@@ -235,7 +235,7 @@ else:
 
 
     st.markdown("### 🧾pollutant Data Table")
-        display_columns = ['Date', 'City', 'Country'] + pollutant_choices
+     display_columns = ['Date', 'City', 'Country'] + pollutant_choices
         available_table_cols = [col for col in display_columns if col in filtered_df.columns]
         if available_table_cols:
             st.dataframe(filtered_df[available_table_cols].sort_values("Date", ascending=False).reset_index(drop=True))
