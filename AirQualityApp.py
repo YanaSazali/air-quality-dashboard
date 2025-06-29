@@ -168,15 +168,15 @@ if page == "Home":
 
 elif page == "Dashboard":
     st.markdown("## 🌍 Air Quality Dashboard")
-    
+
     available_cols = df.columns.tolist()
     has_country = 'Country' in available_cols
     has_city = 'City' in available_cols
-    
+
     if has_country and has_city:
         countries = df['Country'].dropna().unique()
         country = st.sidebar.selectbox("Select Country", sorted(countries) if len(countries) > 0 else ["No countries available"])
-        
+
         if len(countries) > 0:
             cities = df[df['Country'] == country]['City'].dropna().unique()
             selected_cities = st.sidebar.multiselect("Select Cities", sorted(cities) if len(cities) > 0 else ["No cities available"])
@@ -185,13 +185,13 @@ elif page == "Dashboard":
     else:
         country = None
         selected_cities = []
-    
+
     pollutant_choices = [col for col in ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3'] if col in available_cols]
     pollutant = st.sidebar.selectbox("Select Pollutant", pollutant_choices if pollutant_choices else ["No pollutants available"])
-    
+
     if has_country and has_city and len(selected_cities) > 0 and pollutant_choices:
         filtered_df = df[(df['Country'] == country) & (df['City'].isin(selected_cities))]
-        
+
         st.markdown("### 📍 City Locations (if coordinates available)")
         try:
             city_coords = {'Bangkok': (13.75, 100.5), 'Paris': (48.85, 2.35)}
@@ -207,33 +207,25 @@ elif page == "Dashboard":
             st.plotly_chart(fig, use_container_width=True)
         except:
             pass
-        
+
         st.markdown(f"### 📈 {pollutant} Over Time")
-
-try:
-    fig, ax = plt.subplots(figsize=(10, 4))
-    plotted = False
-    for city in selected_cities:
-        city_df = filtered_df[filtered_df['City'] == city]
-        if not city_df.empty:
-            series = city_df.groupby('Date')[pollutant].mean()
-            if not series.empty:
+        try:
+            fig, ax = plt.subplots(figsize=(10, 4))
+            for city in selected_cities:
+                city_data = filtered_df[filtered_df['City'] == city].copy()
+                city_data = city_data.dropna(subset=['Date', pollutant])
+                series = city_data.groupby('Date')[pollutant].mean()
                 ax.plot(series.index, series.values, label=city)
-                plotted = True
-    if plotted:
-        ax.set_xlabel("Date")
-        ax.set_ylabel(f"{pollutant} (µg/m³)")
-        ax.legend()
-        st.pyplot(fig)
-    else:
-        st.warning("No valid data to plot time series.")
-except Exception as e:
-    st.error(f"Error generating time series plot: {e}")
+            ax.set_xlabel("Date")
+            ax.set_ylabel(f"{pollutant} (µg/m³)")
+            ax.legend()
+            st.pyplot(fig)
+        except:
+            st.warning("Unable to plot time series due to missing or incorrect data.")
 
-       
-    st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
-    if 'PM2.5' in available_cols:  
-        for city in selected_cities:
+        if 'PM2.5' in available_cols:
+            st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
+            for city in selected_cities:
                 try:
                     avg = filtered_df[filtered_df['City'] == city]['PM2.5'].mean()
                     status, msg, css = interpret_pm25(avg)
@@ -241,15 +233,13 @@ except Exception as e:
                 except:
                     pass
 
-        # Display pollutant data table
-        st.markdown("### 🧾 Pollutant Data Table")
+        st.markdown("### 🧾pollutant Data Table")
         display_columns = ['Date', 'City', 'Country'] + pollutant_choices
         available_table_cols = [col for col in display_columns if col in filtered_df.columns]
         if available_table_cols:
             st.dataframe(filtered_df[available_table_cols].sort_values("Date", ascending=False).reset_index(drop=True))
         else:
             st.warning("Some pollutant columns are missing from the dataset.")
-
 
 elif page == "Prediction":
     available_cols = df.columns.tolist()
