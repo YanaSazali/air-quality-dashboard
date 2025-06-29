@@ -412,7 +412,8 @@ elif page == "Policy Simulation":
     for standard_name, variants in sim_pollutants.items():
         for variant in variants:
             if variant in [col.lower() for col in current_df.columns]:
-                available_sim_cols.append((standard_name, [col for col in current_df.columns if col.lower() == variant][0]))
+                actual_col = [col for col in current_df.columns if col.lower() == variant][0]
+                available_sim_cols.append((standard_name, actual_col))
                 break
     
     if len(available_sim_cols) == 0:
@@ -420,45 +421,44 @@ elif page == "Policy Simulation":
     else:
         col1, col2 = st.columns(2)
         base_values = {}
-        
+
         with col1:
             for name, col in available_sim_cols[:2]:
-                base_values[col] = st.number_input(name, value=float(current_df[col].mean()))
+                base_values[col] = st.number_input(f"{name} (µg/m³)", value=float(current_df[col].mean()))
         
         with col2:
             for name, col in available_sim_cols[2:]:
-                base_values[col] = st.number_input(name, value=float(current_df[col].mean()))
-        
+                base_values[col] = st.number_input(f"{name} (µg/m³)", value=float(current_df[col].mean()))
+
         st.markdown("### Adjustment (%)")
         adjustments = {}
-        
         for name, col in available_sim_cols:
-            adjustments[col] = st.slider(f"{name} Change", -50, 50, 0)
-        
-        if st.button("Simulate Impact"):
-            new_values = simulate_policy_change(base_values, adjustments)
-            
-            try:
-                # Check if we have PM2.5 data for target
-                pm25_cols = [col for col in current_df.columns if col.lower() in ['pm25', 'pm2.5', 'pm2_5']]
-                if not pm25_cols:
-                    st.info("PM2.5 data not available for simulation target")
-                    return
-                
-                model = RandomForestRegressor(random_state=42)
-                model.fit(current_df[[col for name, col in available_sim_cols]], current_df[pm25_cols[0]])
-                
-                baseline_input = [base_values.get(col, 0) for name, col in available_sim_cols]
-                new_input = [new_values.get(col, 0) for name, col in available_sim_cols]
-                
-                baseline = model.predict([baseline_input])[0]
-                new_pred = model.predict([new_input])[0]
-                
-                st.metric("Baseline PM2.5", f"{baseline:.1f}")
-                st.metric("Simulated PM2.5", f"{new_pred:.1f}", delta=f"{new_pred - baseline:.1f}")
-                if new_pred < baseline:
-                    st.success(f"✅ Policy reduces PM2.5 by {(baseline - new_pred):.1f}")
-                else:
-                    st.warning(f"⚠️ Policy increases PM2.5 by {(new_pred - baseline):.1f}")
-            except Exception as e:
-                st.info(f"Simulation couldn't be completed: {str(e)}")
+            adjustments[col] = st.slider(f"{name} Change (%)", -50, 50, 0)
+
+        # Check if PM2.5 exists before allowing simulation
+        pm25_cols = [col for col in current_df.columns if col.lower() in ['pm25', 'pm2.5', 'pm2_5']]
+        if not pm25_cols:
+            st.info("PM2.5 data not available for simulation target.")
+        else:
+            if st.button("Simulate Impact"):
+                new_values = simulate_policy_change(base_values, adjustments)
+
+                try:
+                    model = RandomForestRegressor(random_state=42)
+                    model.fit(current_df[[col for name, col in available_sim_cols]], current_df[pm25_cols[0]])
+
+                    baseline_input = [base_values.get(col, 0) for name, col in available_sim_cols]
+                    new_input = [new_values.get(col, 0) for name, col in available_sim_cols]
+
+                    baseline = model.predict([baseline_input])[0]
+                    new_pred = model.predict([new_input])[0]
+
+                    st.metric("Baseline PM2.5", f"{baseline:.1f}")
+                    st.metric("Simulated PM2.5", f"{new_pred:.1f}", delta=f"{new_pred - baseline:.1f}")
+                    
+                    if new_pred < baseline:
+                        st.success(f"✅ Policy reduces PM2.5 by {(baseline - new_pred):.1f}")
+                    else:
+                        st.warning(f"⚠️ Policy increases PM2.5 by {(new_pred - baseline):.1f}")
+                except Exception as e:
+                    st.info(f"Simulation couldn't be completed: {str(e)}")
