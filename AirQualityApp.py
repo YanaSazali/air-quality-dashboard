@@ -209,17 +209,27 @@ elif page == "Dashboard":
             pass
         
         st.markdown(f"### 📈 {pollutant} Over Time")
-        try:
-            fig, ax = plt.subplots(figsize=(10, 4))
-            for city in selected_cities:
-                series = filtered_df[filtered_df['City'] == city].groupby('Date')[pollutant].mean()
+
+try:
+    fig, ax = plt.subplots(figsize=(10, 4))
+    plotted = False
+    for city in selected_cities:
+        city_df = filtered_df[filtered_df['City'] == city]
+        if not city_df.empty:
+            series = city_df.groupby('Date')[pollutant].mean()
+            if not series.empty:
                 ax.plot(series.index, series.values, label=city)
-            ax.set_xlabel("Date")
-            ax.set_ylabel(f"{pollutant} (µg/m³)")
-            ax.legend()
-            st.pyplot(fig)
-        except:
-            pass
+                plotted = True
+    if plotted:
+        ax.set_xlabel("Date")
+        ax.set_ylabel(f"{pollutant} (µg/m³)")
+        ax.legend()
+        st.pyplot(fig)
+    else:
+        st.warning("No valid data to plot time series.")
+except Exception as e:
+    st.error(f"Error generating time series plot: {e}")
+
        
         if 'PM2.5' in available_cols:
             st.markdown("### ⚠️ Health Alerts (Based on PM2.5)")
