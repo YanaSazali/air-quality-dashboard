@@ -191,26 +191,26 @@ elif page == "Dashboard":
     st.markdown("## 🌍 Air Quality Dashboard")
 
     available_cols = df.columns.tolist()
-    has_country = 'Country' in available_cols
-    has_city = 'City' in available_cols
+    has_country = 'Country' in df.columns
+    has_city = 'City' in df.columns
 
-    if has_country and has_city:
-        countries = df['Country'].dropna().unique()
-        country = st.sidebar.selectbox("Select Country", sorted(countries) if len(countries) > 0 else ["No countries available"])
+    if not has_country or not has_city:
+        st.warning("⚠️ Your dataset is missing required columns: 'Country' and/or 'City'. Please upload a dataset that includes both to use the dashboard.")
+        st.stop()
 
-        if len(countries) > 0:
-            cities = df[df['Country'] == country]['City'].dropna().unique()
-            selected_cities = st.sidebar.multiselect("Select Cities", sorted(cities) if len(cities) > 0 else ["No cities available"])
-        else:
-            selected_cities = []
+    countries = df['Country'].dropna().unique()
+    country = st.sidebar.selectbox("Select Country", sorted(countries) if len(countries) > 0 else ["No countries available"])
+
+    if len(countries) > 0:
+        cities = df[df['Country'] == country]['City'].dropna().unique()
+        selected_cities = st.sidebar.multiselect("Select Cities", sorted(cities) if len(cities) > 0 else ["No cities available"])
     else:
-        country = None
         selected_cities = []
 
     pollutant_choices = [col for col in ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3'] if col in available_cols]
     pollutant = st.sidebar.selectbox("Select Pollutant", pollutant_choices if pollutant_choices else ["No pollutants available"])
 
-    if has_country and has_city and len(selected_cities) > 0 and pollutant_choices:
+    if len(selected_cities) > 0 and pollutant_choices:
         filtered_df = df[(df['Country'] == country) & (df['City'].isin(selected_cities))]
 
         st.markdown("### 📍 City Locations (if coordinates available)")
@@ -278,6 +278,7 @@ elif page == "Dashboard":
             st.warning("Some pollutant columns are missing from the dataset.")
     else:
         st.warning("Please select a valid country, city, and pollutant to view the dashboard.")
+
 
 
 elif page == "Prediction":
