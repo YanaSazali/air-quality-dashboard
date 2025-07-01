@@ -43,30 +43,10 @@ st.markdown("""
 # File uploader
 uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"])
 
-# Data cleaning function
-def clean_data(df):
-    df.columns = df.columns.str.strip().str.replace(" ", "_").str.upper()
-
-    # Rename common variants to expected names
-    col_renames = {
-        "PM2_5": "PM2.5", "PM25": "PM2.5",
-        "PM10_0": "PM10", "TEMP": "Temperature", "HUMID": "Humidity", "WINDSPEED": "Wind Speed"
-    }
-    df.rename(columns={k: v for k, v in col_renames.items() if k in df.columns}, inplace=True)
-
-    # Drop rows with missing PM2.5 if needed
-    if "PM2.5" in df.columns:
-        df = df.dropna(subset=["PM2.5"])
-
-    # Fill other numeric missing values
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
-
-    return df
-
 @st.cache_resource
 def load_data(uploaded_file=None):
     try:
+        # Show loading status
         if uploaded_file:
             loading_placeholder = st.empty()
             loading_placeholder.markdown("""
@@ -75,22 +55,21 @@ def load_data(uploaded_file=None):
                     <span>Loading dataset...</span>
                 </div>
             """, unsafe_allow_html=True)
-
+        
         df = pd.read_csv(uploaded_file) if uploaded_file else pd.read_csv("AirQuality_Final_Processed.csv")
-
-        # Try parsing date/time columns
+        
+        # Handle date conversion gracefully
         date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
         if date_cols:
             df['Date'] = pd.to_datetime(df[date_cols[0]], errors='coerce')
             df.dropna(subset=['Date'], inplace=True)
         else:
             df['Date'] = pd.NaT
-
-        df = clean_data(df)  # <== CLEAN DATA
-
+            
+        # Clear loading status after processing
         if uploaded_file:
             loading_placeholder.empty()
-
+            
         return df
     except Exception as e:
         if uploaded_file:
@@ -98,7 +77,7 @@ def load_data(uploaded_file=None):
         st.error(f"Error loading data: {e}")
         st.stop()
 
-# Show loading status
+# Show initial loading state
 if uploaded_file and 'df' not in st.session_state:
     st.markdown("""
         <div style="display: flex; align-items: center; margin-bottom: 20px;">
@@ -110,6 +89,7 @@ if uploaded_file and 'df' not in st.session_state:
 
 df = load_data(uploaded_file)
 
+# Clear loading state after data is loaded
 if 'df_loading' in st.session_state:
     st.session_state.df = df
     del st.session_state.df_loading
@@ -120,7 +100,6 @@ with st.sidebar.expander("ℹ️ Dataset Info"):
     st.write(f"Records: {df.shape[0]} | Columns: {df.shape[1]}")
     if st.checkbox("Show column names"):
         st.write(df.columns.tolist())
-
 
 def calculate_aqi(pm25):
     try:
@@ -191,26 +170,26 @@ elif page == "Dashboard":
     st.markdown("## 🌍 Air Quality Dashboard")
 
     available_cols = df.columns.tolist()
-    has_country = 'Country' in df.columns
-    has_city = 'City' in df.columns
+    has_country = 'Country' in available_cols
+    has_city = 'City' in available_cols
 
-    if not has_country or not has_city:
-        st.warning("⚠️ Your dataset is missing required columns: 'Country' and/or 'City'. Please upload a dataset that includes both to use the dashboard.")
-        st.stop()
+    if has_country and has_city:
+        countries = df['Country'].dropna().unique()
+        country = st.sidebar.selectbox("Select Country", sorted(countries) if len(countries) > 0 else ["No countries available"])
 
-    countries = df['Country'].dropna().unique()
-    country = st.sidebar.selectbox("Select Country", sorted(countries) if len(countries) > 0 else ["No countries available"])
-
-    if len(countries) > 0:
-        cities = df[df['Country'] == country]['City'].dropna().unique()
-        selected_cities = st.sidebar.multiselect("Select Cities", sorted(cities) if len(cities) > 0 else ["No cities available"])
+        if len(countries) > 0:
+            cities = df[df['Country'] == country]['City'].dropna().unique()
+            selected_cities = st.sidebar.multiselect("Select Cities", sorted(cities) if len(cities) > 0 else ["No cities available"])
+        else:
+            selected_cities = []
     else:
+        country = None
         selected_cities = []
 
     pollutant_choices = [col for col in ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3'] if col in available_cols]
     pollutant = st.sidebar.selectbox("Select Pollutant", pollutant_choices if pollutant_choices else ["No pollutants available"])
 
-    if len(selected_cities) > 0 and pollutant_choices:
+    if has_country and has_city and len(selected_cities) > 0 and pollutant_choices:
         filtered_df = df[(df['Country'] == country) & (df['City'].isin(selected_cities))]
 
         st.markdown("### 📍 City Locations (if coordinates available)")
@@ -278,7 +257,6 @@ elif page == "Dashboard":
             st.warning("Some pollutant columns are missing from the dataset.")
     else:
         st.warning("Please select a valid country, city, and pollutant to view the dashboard.")
-
 
 
 elif page == "Prediction":
