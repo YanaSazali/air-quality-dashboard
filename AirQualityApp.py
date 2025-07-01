@@ -43,10 +43,30 @@ st.markdown("""
 # File uploader
 uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"])
 
+# Data cleaning function
+def clean_data(df):
+    df.columns = df.columns.str.strip().str.replace(" ", "_").str.upper()
+
+    # Rename common variants to expected names
+    col_renames = {
+        "PM2_5": "PM2.5", "PM25": "PM2.5",
+        "PM10_0": "PM10", "TEMP": "Temperature", "HUMID": "Humidity", "WINDSPEED": "Wind Speed"
+    }
+    df.rename(columns={k: v for k, v in col_renames.items() if k in df.columns}, inplace=True)
+
+    # Drop rows with missing PM2.5 if needed
+    if "PM2.5" in df.columns:
+        df = df.dropna(subset=["PM2.5"])
+
+    # Fill other numeric missing values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+
+    return df
+
 @st.cache_resource
 def load_data(uploaded_file=None):
     try:
-        # Show loading status
         if uploaded_file:
             loading_placeholder = st.empty()
             loading_placeholder.markdown("""
@@ -55,21 +75,22 @@ def load_data(uploaded_file=None):
                     <span>Loading dataset...</span>
                 </div>
             """, unsafe_allow_html=True)
-        
+
         df = pd.read_csv(uploaded_file) if uploaded_file else pd.read_csv("AirQuality_Final_Processed.csv")
-        
-        # Handle date conversion gracefully
+
+        # Try parsing date/time columns
         date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
         if date_cols:
             df['Date'] = pd.to_datetime(df[date_cols[0]], errors='coerce')
             df.dropna(subset=['Date'], inplace=True)
         else:
             df['Date'] = pd.NaT
-            
-        # Clear loading status after processing
+
+        df = clean_data(df)  # <== CLEAN DATA
+
         if uploaded_file:
             loading_placeholder.empty()
-            
+
         return df
     except Exception as e:
         if uploaded_file:
@@ -77,7 +98,7 @@ def load_data(uploaded_file=None):
         st.error(f"Error loading data: {e}")
         st.stop()
 
-# Show initial loading state
+# Show loading status
 if uploaded_file and 'df' not in st.session_state:
     st.markdown("""
         <div style="display: flex; align-items: center; margin-bottom: 20px;">
@@ -89,7 +110,6 @@ if uploaded_file and 'df' not in st.session_state:
 
 df = load_data(uploaded_file)
 
-# Clear loading state after data is loaded
 if 'df_loading' in st.session_state:
     st.session_state.df = df
     del st.session_state.df_loading
@@ -100,6 +120,7 @@ with st.sidebar.expander("ℹ️ Dataset Info"):
     st.write(f"Records: {df.shape[0]} | Columns: {df.shape[1]}")
     if st.checkbox("Show column names"):
         st.write(df.columns.tolist())
+
 
 def calculate_aqi(pm25):
     try:
